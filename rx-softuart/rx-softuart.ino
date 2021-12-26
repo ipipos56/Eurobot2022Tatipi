@@ -9,9 +9,7 @@ GBUS bus(&UART, 3, 20); // обработчик UART, адрес 3, буфер 2
 
 // структура для приёма
 struct myStruct {
-  byte val_b;
-  int val_i;
-  float val_f;
+  String data;
 };
 
 void setup() {
@@ -24,9 +22,7 @@ void loop() {
   if (bus.gotData()) {
     myStruct rxData;
     bus.readData(rxData);
-    Serial.println(rxData.val_b);
-    Serial.println(rxData.val_i);
-    Serial.println(rxData.val_f);
+    Serial.println(rxData.data);
     Serial.println();
   }
 }
