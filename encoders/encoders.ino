@@ -19,12 +19,10 @@ void setup() {
 
 void myTurn() {
   Serial.println("1:" + String(enc.counter));  // вывести счётчик
-  
 }
 
 void myTurn2() {
   Serial.println("2:" + String(enc2.counter));  // вывести счётчик
-
 }
 void myTurn3() {
   Serial.println("3:" + String(enc3.counter));  // вывести счётчик
