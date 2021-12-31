@@ -108,8 +108,8 @@ void myTurn3() {
 }
 
 void loop() {
-r.x = 0.3;
-r.y = 0.2;
+r.x = 0;
+r.y = 0;
 r.angle = pi/4;
 r.time = 10;
 Serial.println(calculate(r).tick3);

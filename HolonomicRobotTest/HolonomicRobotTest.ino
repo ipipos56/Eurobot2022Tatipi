@@ -1,6 +1,6 @@
 #define pi PI
 #define R 0.057/2
-double a = pi/4;
+double a = pi / 4;
 double A[3][3];
 double B[3];
 double x0 = 0;
@@ -9,7 +9,7 @@ double x = 0;
 double y = 0;
 double t = 1;
 
-const int tick = 605;
+const int tick = 580;
 
 struct robot
 {
@@ -38,40 +38,40 @@ robot calculate(robot zero)
   y0 = zero.y_previous;
   x = zero.x;
   y = zero.y;
-  
-  A[0][0] = 1/3;
-  A[0][1] = -(sqrt(3)*sin(a))/3;
-  A[0][2] = (sqrt(3)*cos(a))/3;
-  
-  A[1][0] = 1/3;
-  A[1][1] = (sqrt(3)*sin(a))/6-cos(a)/2;
-  A[1][2] = -sin(a)/2 - (sqrt(3)*cos(a))/6;
-  
-  A[2][0] = 1/3;
-  A[2][1] = (sqrt(3)*sin(a))/6+cos(a)/2;
-  A[2][2] = sin(a)/2 - (sqrt(3)*cos(a))/6;
-  
+
+  A[0][0] = 1 / 3;
+  A[0][1] = -(sqrt(3) * sin(a)) / 3;
+  A[0][2] = (sqrt(3) * cos(a)) / 3;
+
+  A[1][0] = 1 / 3;
+  A[1][1] = (sqrt(3) * sin(a)) / 6 - cos(a) / 2;
+  A[1][2] = -sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
+
+  A[2][0] = 1 / 3;
+  A[2][1] = (sqrt(3) * sin(a)) / 6 + cos(a) / 2;
+  A[2][2] = sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
+
   B[0] = (double)0;
-  B[1] = ((x-x0)*sqrt(3))/(R*t);
-  B[2] = ((y-y0)*sqrt(3))/(R*t);
-  
-  zero.w1 = A[0][1]*B[1]+A[0][2]*B[2];
-  zero.w2 = A[1][1]*B[1]+A[1][2]*B[2];
-  zero.w3 = A[2][1]*B[1]+A[2][2]*B[2];
+  B[1] = ((x - x0) * sqrt(3)) / (R * t);
+  B[2] = ((y - y0) * sqrt(3)) / (R * t);
+
+  zero.w1 = A[0][1] * B[1] + A[0][2] * B[2];
+  zero.w2 = A[1][1] * B[1] + A[1][2] * B[2];
+  zero.w3 = A[2][1] * B[1] + A[2][2] * B[2];
 
   zero.u1 = zero.w1 * R;
   zero.u2 = zero.w2 * R;
   zero.u3 = zero.w3 * R;
 
-  zero.tick1 = zero.u1*tick/(2*pi*R);
-  zero.tick2 = zero.u2*tick/(2*pi*R);
-  zero.tick3 = zero.u3*tick/(2*pi*R);
-  
+  zero.tick1 = zero.u1 * tick / (2 * pi * R);
+  zero.tick2 = zero.u2 * tick / (2 * pi * R);
+  zero.tick3 = zero.u3 * tick / (2 * pi * R);
+
   zero.x_previous = x;
   zero.y_previous = y;
 
 
-  
+
   return zero;
 }
 robot r;
@@ -79,15 +79,23 @@ void setup() {
   r.x_previous = 0;
   r.y_previous = 0;
   Serial.begin(9600);
+  r.time = 30;
 }
 
 
 
 void loop() {
-r.x = 0.3;
-r.y = 0.2;
-r.angle = pi/4;
-r.time = 10;
-Serial.println(calculate(r).tick3);
-delay(50000);
+  r.x_previous = 0;
+  r.y_previous = 0;
+  r.x = 0.3;
+  r.y = 0.2;
+  r.angle = pi/4;
+  calculate(r).u1;
+  Serial.println(String(r.time) + " : " + String(calculate(r).u1*100) + " : " + String(calculate(r).u2*100) + " : " + String(calculate(r).u3*100));
+  r.time = r.time - 1;
+  if(r.time == 0)
+  {
+    delay(1000000000);
+  }
+  delay(500);
 }
