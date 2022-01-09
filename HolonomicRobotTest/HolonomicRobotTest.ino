@@ -25,6 +25,9 @@ struct robot
   double u1;
   double u2;
   double u3;
+  int sign1;
+  int sign2;
+  int sign3;
   int tick1;
   int tick2;
   int tick3;
@@ -63,9 +66,9 @@ robot calculate(robot zero)
   zero.u2 = zero.w2 * R;
   zero.u3 = zero.w3 * R;
 
-  zero.tick1 = zero.u1 * tick / (2 * pi * R);
-  zero.tick2 = zero.u2 * tick / (2 * pi * R);
-  zero.tick3 = zero.u3 * tick / (2 * pi * R);
+  zero.tick1 = zero.u1 * zero.time * tick / (2 * pi * R);
+  zero.tick2 = zero.u2 * zero.time * tick / (2 * pi * R);
+  zero.tick3 = zero.u3 * zero.time * tick / (2 * pi * R);
 
   zero.x_previous = x;
   zero.y_previous = y;
@@ -79,23 +82,35 @@ void setup() {
   r.x_previous = 0;
   r.y_previous = 0;
   Serial.begin(9600);
-  r.time = 30;
 }
 
-
+double map(double x, double in_min, double in_max, double out_min, double out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 void loop() {
-  r.x_previous = 0;
-  r.y_previous = 0;
-  r.x = 0.3;
-  r.y = 0.2;
-  r.angle = pi/4;
-  calculate(r).u1;
-  Serial.println(String(r.time) + " : " + String(calculate(r).u1*100) + " : " + String(calculate(r).u2*100) + " : " + String(calculate(r).u3*100));
-  r.time = r.time - 1;
-  if(r.time == 0)
+  bool flag = 0;
+  for (r.time = 100; r.time >= 0; r.time--)
   {
+    r.x_previous = 0;
+    r.y_previous = 0;
+    r.x = 0;
+    r.y = 2;
+    r.angle = 0;
+    if ((abs(calculate(r).u1 * 100) > 52) || (abs(calculate(r).u2 * 100) > 52) || (abs(calculate(r).u3 * 100) > 52))
+    {
+      r.time ++;
+      flag = 1;
+      break;
+    }
+    Serial.println(String(flag) + " : " + String(map(calculate(r).u1 * 100,0,52,0,255)) + " : " + String(map(calculate(r).u2 * 100,0,52,0,255)) + " : " + String(map(calculate(r).u3 * 100,0,52,0,255)));
+  }
+  
+  if (flag == 1)
+  {
+    Serial.println(String(r.time) + " : " + String(calculate(r).u1 * 100) + " : " + String(calculate(r).u2 * 100) + " : " + String(calculate(r).u3 * 100));
     delay(1000000000);
   }
-  delay(500);
+  delay(10);
 }
