@@ -1,5 +1,30 @@
+#include <EncButton.h>
+
+#define EB_BETTER_ENC
+#define pi PI
+
 const double d = 0.1827; //meter
 const double r = 0.058 / 2;
+
+const unsigned int IN1 = 25;
+const unsigned int IN2 = 24;
+const unsigned int EN1 = 3;
+
+const unsigned int IN3 = 23;
+const unsigned int IN4 = 22;
+const unsigned int EN2 = 2;
+
+const unsigned int IN5 = 27;
+const unsigned int IN6 = 26;
+const unsigned int EN3 = 4;
+
+bool m1;
+bool m2;
+bool m3;
+
+EncButton<EB_CALLBACK, 18, 19> enc1;
+EncButton<EB_CALLBACK, 16, 17> enc2;
+EncButton<EB_CALLBACK, 14, 15> enc3;
 
 class Robot
 {
@@ -30,6 +55,8 @@ class Robot
       this -> A[2][1] = -1 / 2;
       this -> A[2][2] = sin(PI / 3);
     }
+    void attachment();
+    void initialization();
   private:
     double x0;
     double y0;
@@ -38,6 +65,34 @@ class Robot
     double angle;
     double A[3][3];
 };
+Robot firstRobot();
+void setup()
+{
+  Serial.begin(115200);
+  firstRobot.initialization();
+  firstRobot.attachment();
+}
+void loop()
+{
+}
+void Robot::initialization()
+{
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(EN1,  OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(EN2, OUTPUT);
+  pinMode(IN5, OUTPUT);
+  pinMode(IN6, OUTPUT);
+  pinMode(EN3, OUTPUT);
+}
+void Robot::attachment()
+{
+  enc1.attach(TURN_HANDLER, myTurn);
+  enc2.attach(TURN_HANDLER, myTurn2);
+  enc3.attach(TURN_HANDLER, myTurn3);
+}
 void Robot::setCurrentX(double x)
 {
   this -> x0 = this -> x;
@@ -63,9 +118,15 @@ double Robot :: getPreviousX() {
 double Robot :: getPreviousY() {
   return this -> y0;
 }
-void setup()
+void myTurn()
 {
+  m1 = !m1;
 }
-void loop()
+void myTurn2()
 {
+  m2 = !m2;
+}
+void myTurn3()
+{
+  m3 = !m3;
 }

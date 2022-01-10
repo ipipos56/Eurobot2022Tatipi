@@ -2,7 +2,7 @@
 #include <EncButton.h>
 
 #define pi PI
-#define R 0.058/2
+#define R 0.058/2 * 100
 
 int t0 = 0;
 int t1 = 0;
@@ -17,11 +17,11 @@ double y0 = 0;
 double x = 0;
 double y = 0;
 double t = 1;
-const int tick = 580;
+const int Tick = 450;
 
 const unsigned int IN1 = 25;//25
 const unsigned int IN2 = 24;//24
-const unsigned int EN = 3;//3
+const unsigned int EN1 = 3;//3
 
 const unsigned int IN3 = 23;
 const unsigned int IN4 = 22;
@@ -40,7 +40,7 @@ int target = 0;
 int target2 = 0;
 int target3 = 0;
 
-EncButton<EB_CALLBACK, 18, 19> enc;
+EncButton<EB_CALLBACK, 18, 19> enc1;
 EncButton<EB_CALLBACK, 16, 17> enc2;
 EncButton<EB_CALLBACK, 14, 15> enc3;
 
@@ -63,56 +63,56 @@ struct robot
   int tick3;
 };
 
-robot calculate(robot zero)
-{
-  a = zero.angle;
-  t = zero.time;
-  x0 = zero.x_previous;
-  y0 = zero.y_previous;
-  x = zero.x;
-  y = zero.y;
-
-  A[0][0] = 1 / 3;
-  A[0][1] = -(sqrt(3) * sin(a)) / 3;
-  A[0][2] = (sqrt(3) * cos(a)) / 3;
-
-  A[1][0] = 1 / 3;
-  A[1][1] = (sqrt(3) * sin(a)) / 6 - cos(a) / 2;
-  A[1][2] = -sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
-
-  A[2][0] = 1 / 3;
-  A[2][1] = (sqrt(3) * sin(a)) / 6 + cos(a) / 2;
-  A[2][2] = sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
-
-  B[0] = (double)0;
-  B[1] = ((x - x0) * sqrt(3)) / (R * t);
-  B[2] = ((y - y0) * sqrt(3)) / (R * t);
-
-  zero.w1 = A[0][1] * B[1] + A[0][2] * B[2];
-  zero.w2 = A[1][1] * B[1] + A[1][2] * B[2];
-  zero.w3 = A[2][1] * B[1] + A[2][2] * B[2];
-
-  zero.u1 = zero.w1 * R;
-  zero.u2 = zero.w2 * R;
-  zero.u3 = zero.w3 * R;
-
-  zero.tick1 = zero.u1 * tick / (2 * pi * R);
-  zero.tick2 = zero.u2 * tick / (2 * pi * R);
-  zero.tick3 = zero.u3 * tick / (2 * pi * R);
-
-  zero.x_previous = x;
-  zero.y_previous = y;
-
-
-
-  return zero;
-}
+//robot calculate(robot zero)
+//{
+//  a = zero.angle;
+//  t = zero.time;
+//  x0 = zero.x_previous;
+//  y0 = zero.y_previous;
+//  x = zero.x;
+//  y = zero.y;
+//
+//  A[0][0] = 1 / 3;
+//  A[0][1] = -(sqrt(3) * sin(a)) / 3;
+//  A[0][2] = (sqrt(3) * cos(a)) / 3;
+//
+//  A[1][0] = 1 / 3;
+//  A[1][1] = (sqrt(3) * sin(a)) / 6 - cos(a) / 2;
+//  A[1][2] = -sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
+//
+//  A[2][0] = 1 / 3;
+//  A[2][1] = (sqrt(3) * sin(a)) / 6 + cos(a) / 2;
+//  A[2][2] = sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
+//
+//  B[0] = (double)0;
+//  B[1] = ((x - x0) * sqrt(3)) / (R * t);
+//  B[2] = ((y - y0) * sqrt(3)) / (R * t);
+//
+//  zero.w1 = A[0][1] * B[1] + A[0][2] * B[2];
+//  zero.w2 = A[1][1] * B[1] + A[1][2] * B[2];
+//  zero.w3 = A[2][1] * B[1] + A[2][2] * B[2];
+//
+//  zero.u1 = zero.w1 * R;
+//  zero.u2 = zero.w2 * R;
+//  zero.u3 = zero.w3 * R;
+//
+//  zero.tick1 = zero.u1 * tick / (2 * pi * R);
+//  zero.tick2 = zero.u2 * tick / (2 * pi * R);
+//  zero.tick3 = zero.u3 * tick / (2 * pi * R);
+//
+//  zero.x_previous = x;
+//  zero.y_previous = y;
+//
+//
+//
+//  return zero;
+//}
 
 robot r;
 
 void attachment()
 {
-  enc.attach(TURN_HANDLER, myTurn);
+  enc1.attach(TURN_HANDLER, myTurn);
   enc2.attach(TURN_HANDLER, myTurn2);
   enc3.attach(TURN_HANDLER, myTurn3);
 }
@@ -121,7 +121,7 @@ void initialization()
 {
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
-  pinMode(EN,  OUTPUT);
+  pinMode(EN1,  OUTPUT);
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
   pinMode(EN2, OUTPUT);
@@ -164,7 +164,7 @@ void speedOfMotor(int numberOfMotor, int pwm)
   switch (numberOfMotor)
   {
     case 0:
-      analogWrite(EN, pwm);
+      analogWrite(EN1, pwm);
       break;
     case 1:
       analogWrite(EN2, pwm);
@@ -236,6 +236,7 @@ void bigDelay()
 
 bool m1 = 0;
 bool m2 = 0;
+bool m3 = 0;
 void myTurn() {
   //Serial.println("1:" + String(enc.counter));  // вывести счётчик
   m1 = !m1;
@@ -253,7 +254,7 @@ void myTurn2() {
 
 
 void myTurn3() {
-  Serial.println("3:" + String(enc3.counter));  // вывести счётчик
+  m3 = !m3;
 }
 
 void stopper()
@@ -275,51 +276,173 @@ void stopper()
   }
 }
 
-int computePID(float input, float setpoint, float kp, float ki, float kd, float dt, int minOut, int maxOut) {
-  int err = setpoint - input;
-  static float integral = 0, prevErr = 0;
-  integral = constrain(integral + (float)err * dt * ki, minOut, maxOut);
-  float D = (err - prevErr) / dt;
-  prevErr = err;
-  Serial.println(String(err * kp + integral + D * kd));
-  return constrain(err * kp + integral + D * kd, minOut, maxOut);
-}
+
 //0 по часовой, 1 против
 //при 0 энкодер положительный, при 1 отрицательный
 // =============== LOOP =============
 int speed = 180;
 
-void loop() {
-  enc.tick();
+bool finishMoving = false;
+int _tick1 = 0;
+int _tick2 = 0;
+bool PidForMoving(int distance, int direction, int dir, int tick1, int tick2, float kp, float ki, float kd, float dt)
+{
+  int _distance = (distance * Tick) / (2 * PI * R);
+  int _motor1;
+  int _motor1A;
+  int _motor1B;
+  int _motor2;
+  int _motor2A;
+  int _motor2B;
+  enc1.tick();
   enc2.tick();
-  if(uw>0)
+  enc3.tick();
+  int err;
+  static float integral = 0, prevErr = 0;
+  float D;
+  switch (direction)
   {
-    analogWrite(EN, speed);
-    analogWrite(EN2, speed+uw);
+    case 12:
+      _motor1 = EN1;
+      _motor1A = IN1;
+      _motor1B = IN2;
+      _motor2 = EN2;
+      _motor2A = IN3;
+      _motor2B = IN4;
+      if (m1)
+      {
+        m1 = !m1;
+        tick1 = abs(enc1.counter);
+        _tick1 = tick1 * cos(pi / 6);
+      }
+      if (m2)
+      {
+        m2 = !m2;
+        tick2 = abs(enc2.counter);
+        _tick2 = tick2 * cos(pi / 6);
+      }
+      if ((int)((_tick1 + _tick2) / 2) >= _distance)
+        finishMoving = true;
+      break;
+    case 23:
+      _motor1 = EN2;
+      _motor1A = IN3;
+      _motor1B = IN4;
+      _motor2 = EN3;
+      _motor2A = IN5;
+      _motor2B = IN6;
+      if (m2)
+      {
+        m2 = !m2;
+        tick1 = abs(enc2.counter);
+        _tick1 = tick1 * cos(pi / 6);
+      }
+      if (m3)
+      {
+        m3 = !m3;
+        tick2 = abs(enc3.counter);
+        _tick2 = tick2 * cos(pi / 6);
+      }
+      if ((int)((_tick1 + _tick2) / 2) >= _distance)
+        finishMoving = true;
+      break;
+    case 31:
+      _motor1 = EN3;
+      _motor1A = IN5;
+      _motor1B = IN6;
+      _motor2 = EN1;
+      _motor2A = IN1;
+      _motor2B = IN2;
+      if (m3)
+      {
+        m3 = !m3;
+        tick1 = abs(enc3.counter);
+        _tick1 = tick1 * cos(pi / 6);
+      }
+      if (m1)
+      {
+        m1 = !m1;
+        tick2 = abs(enc1.counter);
+        _tick2 = tick2 * cos(pi / 6);
+      }
+      if ((int)((_tick1 + _tick2) / 2) >= _distance)
+        finishMoving = true;
+      break;
+  }
+  err = _tick1 - _tick2;
+  integral = integral + err * dt * ki;
+  D = (err - prevErr) / dt;
+  Serial.println(err);
+  int uw = err * kp;
+  if (dir < 0)
+  {
+    digitalWrite(_motor1A, HIGH);
+    digitalWrite(_motor1B, LOW);
+    digitalWrite(_motor2A, LOW);
+    digitalWrite(_motor2B, HIGH);
   }
   else
   {
-    analogWrite(EN, speed-uw);
-    analogWrite(EN2, speed);
+    digitalWrite(_motor1A, LOW);
+    digitalWrite(_motor1B, HIGH);
+    digitalWrite(_motor2A, HIGH);
+    digitalWrite(_motor2B, LOW);
   }
-  
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  if (m1 && m2)
+  if (uw < 0)
   {
+    analogWrite(_motor1, speed);
+    analogWrite(_motor2, speed + uw);
+  }
+  else
+  {
+    analogWrite(_motor1, speed - uw);
+    analogWrite(_motor2, speed);
+  }
+  prevErr = err;
+  return finishMoving;
+}
+bool finish;
+void loop() {
+
+    finish =  PidForMoving(20, 31, 1, 0, 0, 5, 0.5, 0.5, 1);
+    if (finish)
+    {
+      motorStop(0);
+      motorStop(1);
+      motorStop(2);
+      Serial.println("Good");
+      delay(10000000000000000);
+    }
+  /*
+    enc1.tick();
+    enc2.tick();
+    if (uw > 0)
+    {
+    analogWrite(EN, speed);
+    analogWrite(EN2, speed + uw);
+    }
+    else
+    {
+    analogWrite(EN, speed - uw);
+    analogWrite(EN2, speed);
+    }
+
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    if (m1 && m2)
+    {
     m1 = !m1;
     m2 = !m2;
     uw = abs(enc.counter) - abs(enc2.counter);
-    uw +=6;
-    uw = constrain(uw,-40,40);
+    uw += 6;
+    uw = constrain(uw, -40, 40);
     Serial.println(uw);
-  }
-  //int d = computePID(abs(enc.counter),abs(enc2.counter),1.2,0.5,1.2,0.1, 180,250);
-  //Serial.println(enc.counter);
-  //Serial.println(String((abs(enc.counter)-abs(enc2.counter))*1.2));
-  /*
+    }
+    //int d = computePID(abs(enc.counter),abs(enc2.counter),1.2,0.5,1.2,0.1, 180,250);
+    //Serial.println(enc.counter);
+    //Serial.println(String((abs(enc.counter)-abs(enc2.counter))*1.2));
     Serial.println(String(d) + " : " + String(d2));
     analogWrite(EN, d);
     analogWrite(EN2, d2);
