@@ -280,7 +280,7 @@ void stopper()
 //0 по часовой, 1 против
 //при 0 энкодер положительный, при 1 отрицательный
 // =============== LOOP =============
-int speed = 180;
+int speed = 140;
 
 bool finishMoving = false;
 int _tick1 = 0;
@@ -404,15 +404,15 @@ bool PidForMoving(int distance, int direction, int dir, int tick1, int tick2, fl
 bool finish;
 void loop() {
 
-    finish =  PidForMoving(20, 31, 1, 0, 0, 5, 0.5, 0.5, 1);
-    if (finish)
-    {
-      motorStop(0);
-      motorStop(1);
-      motorStop(2);
-      Serial.println("Good");
-      delay(10000000000000000);
-    }
+  finish =  PidForMoving(20, 12, 1, 0, 0, 5, 0.5, 0.5, 1);
+  if (finish)
+  {
+    motorStop(0);
+    motorStop(1);
+    motorStop(2);
+    Serial.println("Good");
+    delay(10000000000000000);
+  }
   /*
     enc1.tick();
     enc2.tick();
