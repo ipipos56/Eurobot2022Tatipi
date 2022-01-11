@@ -17,7 +17,7 @@ double y0 = 0;
 double x = 0;
 double y = 0;
 double t = 1;
-const int Tick = 450;
+const int Tick = 460;
 
 const unsigned int IN1 = 25;//25
 const unsigned int IN2 = 24;//24
@@ -62,51 +62,6 @@ struct robot
   int tick2;
   int tick3;
 };
-
-//robot calculate(robot zero)
-//{
-//  a = zero.angle;
-//  t = zero.time;
-//  x0 = zero.x_previous;
-//  y0 = zero.y_previous;
-//  x = zero.x;
-//  y = zero.y;
-//
-//  A[0][0] = 1 / 3;
-//  A[0][1] = -(sqrt(3) * sin(a)) / 3;
-//  A[0][2] = (sqrt(3) * cos(a)) / 3;
-//
-//  A[1][0] = 1 / 3;
-//  A[1][1] = (sqrt(3) * sin(a)) / 6 - cos(a) / 2;
-//  A[1][2] = -sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
-//
-//  A[2][0] = 1 / 3;
-//  A[2][1] = (sqrt(3) * sin(a)) / 6 + cos(a) / 2;
-//  A[2][2] = sin(a) / 2 - (sqrt(3) * cos(a)) / 6;
-//
-//  B[0] = (double)0;
-//  B[1] = ((x - x0) * sqrt(3)) / (R * t);
-//  B[2] = ((y - y0) * sqrt(3)) / (R * t);
-//
-//  zero.w1 = A[0][1] * B[1] + A[0][2] * B[2];
-//  zero.w2 = A[1][1] * B[1] + A[1][2] * B[2];
-//  zero.w3 = A[2][1] * B[1] + A[2][2] * B[2];
-//
-//  zero.u1 = zero.w1 * R;
-//  zero.u2 = zero.w2 * R;
-//  zero.u3 = zero.w3 * R;
-//
-//  zero.tick1 = zero.u1 * tick / (2 * pi * R);
-//  zero.tick2 = zero.u2 * tick / (2 * pi * R);
-//  zero.tick3 = zero.u3 * tick / (2 * pi * R);
-//
-//  zero.x_previous = x;
-//  zero.y_previous = y;
-//
-//
-//
-//  return zero;
-//}
 
 robot r;
 
@@ -159,6 +114,7 @@ void motorStop(int numberOfMotor)
   }
 }
 
+/
 void speedOfMotor(int numberOfMotor, int pwm)
 {
   switch (numberOfMotor)
@@ -238,18 +194,10 @@ bool m1 = 0;
 bool m2 = 0;
 bool m3 = 0;
 void myTurn() {
-  //Serial.println("1:" + String(enc.counter));  // вывести счётчик
   m1 = !m1;
-  //uw = (abs(enc.counter) - abs(enc2.counter)) * 2;
-  //Serial.println(String((abs(enc.counter) - abs(enc2.counter)) * 1.2));
-
 }
 void myTurn2() {
-  //Serial.println("2:" + String(enc2.counter));  // вывести счётчик
   m2 = !m2;
-  //uw = (abs(enc.counter) - abs(enc2.counter)) * 2;
-  //Serial.println(String((abs(enc.counter) - abs(enc2.counter)) * 1.2));
-
 }
 
 
@@ -257,30 +205,10 @@ void myTurn3() {
   m3 = !m3;
 }
 
-void stopper()
-{
-  if (stop1 == true)
-  {
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, LOW);
-  }
-  if (stop2 == true)
-  {
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, LOW);
-  }
-  if (stop3 == true)
-  {
-    digitalWrite(IN5, LOW);
-    digitalWrite(IN6, LOW);
-  }
-}
-
-
 //0 по часовой, 1 против
 //при 0 энкодер положительный, при 1 отрицательный
 // =============== LOOP =============
-int speed = 140;
+int speed = 180;
 
 bool finishMoving = false;
 int _tick1 = 0;
@@ -404,7 +332,7 @@ bool PidForMoving(int distance, int direction, int dir, int tick1, int tick2, fl
 bool finish;
 void loop() {
 
-  finish =  PidForMoving(20, 12, 1, 0, 0, 5, 0.5, 0.5, 1);
+  finish =  PidForMoving(25, 12, 1, 0, 0, 5, 0.5, 0.5, 1);
   if (finish)
   {
     motorStop(0);
