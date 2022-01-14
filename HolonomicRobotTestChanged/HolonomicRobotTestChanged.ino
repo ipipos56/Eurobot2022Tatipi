@@ -5,14 +5,12 @@
 
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
-#define Radius 0.48 * 100
+#define Radius 0.32 * 100
 #define speed 255
 
 const int Tick = 460;
 const int Tick2 = 599;
 
-int _tick1 = 0;
-int _tick2 = 0;
 int currentX = 0;
 int currentY = 0;
 int previousX = 0;
@@ -22,8 +20,8 @@ bool _finishMoving = 0;
 
 float angleOfRobot = 0;
 
-const double d = 0.1827; //meter
-const double r = 0.058 / 2;
+const float d = 0.1827; //meter
+const float r = 0.058 / 2;
 
 const unsigned int IN1 = 25;
 const unsigned int IN2 = 24;
@@ -71,13 +69,15 @@ void setup()
 }
 void loop()
 {
+  delay(1000);
+  //rotationForHex(PI / 2, 12);
   Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
-  currentMovement(97, 15);
-  Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
-  currentMovement(41, 81);
-  Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
-  currentMovement(-30, 60);
-  Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
+    currentMovement(97, 15);
+    //Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
+    currentMovement(41, 78);
+    //Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
+    currentMovement(-32, 55);
+    //Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
   while (1);
 }
 
@@ -138,16 +138,17 @@ bool currentMovement(float x, float y)
     _dir = 31;
     _angle = phi31;
   }
-  Serial.println("Angle:" + String(_angle));
   rotationOfRobotVectors(_angle);
   float _distance = sqrt(_x * _x + _y * _y);
   angleOfRobot += _angle;
-  //robotRotating(_angle);
+  _finishMoving = 0;
+  robotRotating(_angle);
   delay(300);
   enc1.counter = 0;
   enc2.counter = 0;
   enc3.counter = 0;
-  //PidForMoving(_distance, _dir, 1, 0 , 0 , 2, 0 , 0, 0.1);
+  _finishMoving = 0;
+  PidForMoving(_distance, _dir, 1, 0 , 0 , 2, 0 , 0, 0.1);
   previousX = x;
   previousY = y;
   return _finishMoving;
@@ -253,6 +254,8 @@ float to2PI(float rad)
 
 bool rotationForHex(float rad, int dir)
 {
+  rotationOfRobotVectors(rad);
+  angleOfRobot += rad;
   bool _dir = 0;
   if (rad < 0)
     _dir = 1;
@@ -261,44 +264,49 @@ bool rotationForHex(float rad, int dir)
   enc3.counter = 0;
   int tick1 = 0, tick2 = 0, tick3 = 0;
   _finishMoving = 0;
-  while (_finishMoving == 0)
+  while (1)
   {
     enc1.tick();
     enc2.tick();
     enc3.tick();
     if (m1)
     {
-      tick1 = enc1.counter;
+      tick1 = abs(enc1.counter);
       m1 = !m1;
     }
     if (m2)
     {
-      tick2 = enc2.counter;
+      tick2 = abs(enc2.counter);
       m2 = !m2;
     }
     if (m3)
     {
-      tick3 = enc3.counter;
+      tick3 = abs(enc3.counter);
       m3 = !m3;
     }
-    if ((abs(tick1) || abs(tick2) || abs(tick3))  >= abs(rad * Radius) / (2 * PI * R)*Tick2)
-      _finishMoving = !_finishMoving;
+    if (abs(tick3)  >= (abs(rad * Radius) / (2 * PI * R)*Tick2))
+      _finishMoving = 1;
+    if (abs(tick2)  >= (abs(rad * Radius) / (2 * PI * R)*Tick2))
+      _finishMoving = 1;
+    if (abs(tick1)  >= (abs(rad * Radius) / (2 * PI * R)*Tick2))
+      _finishMoving = 1;
     if (_dir)
     {
       switch (dir)
       {
         case 12:
-          analogWrite(EN3, 200);
+
+          analogWrite(EN3, 255);
           digitalWrite(IN5, LOW);
           digitalWrite(IN6, HIGH);
           break;
         case 23:
-          analogWrite(EN1, 200);
+          analogWrite(EN1, 255);
           digitalWrite(IN1, LOW);
           digitalWrite(IN2, HIGH);
           break;
         case 31:
-          analogWrite(EN2, 200);
+          analogWrite(EN2, 255);
           digitalWrite(IN3, LOW);
           digitalWrite(IN4, HIGH);
           break;
@@ -309,22 +317,24 @@ bool rotationForHex(float rad, int dir)
       switch (dir)
       {
         case 12:
-          analogWrite(EN3, 200);
+          analogWrite(EN3, 255);
           digitalWrite(IN5, HIGH);
           digitalWrite(IN6, LOW);
           break;
         case 23:
-          analogWrite(EN1, 200);
+          analogWrite(EN1, 255);
           digitalWrite(IN1, HIGH);
           digitalWrite(IN2, LOW);
           break;
         case 31:
-          analogWrite(EN2, 200);
+          analogWrite(EN2, 255);
           digitalWrite(IN3, HIGH);
           digitalWrite(IN4, LOW);
           break;
       }
     }
+    if (_finishMoving == 1)
+      break;
   }
   motorStop(1);
   motorStop(2);
@@ -332,9 +342,8 @@ bool rotationForHex(float rad, int dir)
   return _finishMoving;
 }
 
-bool robotRotating(double rad)
+bool robotRotating(float rad)
 {
-  _finishMoving = 0;
   if (abs(rad) > abs(rad - 2 * pi))  rad = to2PI(rad - 2 * pi);
   bool _dir = 0;
   if (rad < 0)
@@ -396,21 +405,31 @@ bool robotRotating(double rad)
   return _finishMoving;
 }
 
-bool PidForMoving(double distance, int direction, int dir, int tick1, int tick2, float kp, float ki, float kd, float dt)
+bool PidForMoving(float distance, int direction, int dir, int16_t tick1, int16_t tick2, float kp, float ki, float kd, float dt)
 {
-  _finishMoving = 0;
-  double _distance = (distance * Tick) / (2 * PI * R);
+  float _distance = abs((distance * Tick) / (2 * PI * R));
   int _motor1;
   int _motor1A;
   int _motor1B;
   int _motor2;
   int _motor2A;
   int _motor2B;
+  int _tick1 = 0;
+  int _tick2 = 0;
+  tick1 = 0;
+  tick2 = 0;
+  Serial.println(String(enc1.counter) + "\t" + String(enc2.counter) + "\t" + String(enc3.counter));
+  delay(1000);
   enc1.counter = 0;
   enc2.counter = 0;
   enc3.counter = 0;
-  while (_finishMoving == 0)
+  while (1)
   {
+    if (_finishMoving == 1)
+    {
+      Serial.println("UZGHE");
+      break;
+    }
     enc1.tick();
     enc2.tick();
     enc3.tick();
@@ -430,16 +449,18 @@ bool PidForMoving(double distance, int direction, int dir, int tick1, int tick2,
         {
           m1 = !m1;
           tick1 = abs(enc1.counter);
-          _tick1 = tick1 * cos(pi / 6);
+          _tick1 = tick1 * cos(PI / 6);
         }
         if (m2)
         {
           m2 = !m2;
           tick2 = abs(enc2.counter);
-          _tick2 = tick2 * cos(pi / 6);
+          _tick2 = tick2 * cos(PI / 6);
         }
         if ((int)((_tick1 + _tick2) / 2) >= _distance)
+        {
           _finishMoving = true;
+        }
         break;
       case 23:
         _motor1 = EN2;
@@ -519,6 +540,6 @@ bool PidForMoving(double distance, int direction, int dir, int tick1, int tick2,
   motorStop(1);
   motorStop(2);
   motorStop(3);
-  delay(200);
+  delay(300);
   return _finishMoving;
 }
