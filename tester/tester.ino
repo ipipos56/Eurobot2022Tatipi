@@ -69,7 +69,7 @@ void setup()
 }
 void loop()
 {
-  PidForMoving(25, 31, 1, 0 , 0 , 0, 1.5, 0.8 , 2, 0.01);
+  PidForMoving(50, 12, 1, 0 , 0 , 0, 1.5, 0.8 , 2, 0.01);
   /*
     delay(500);
     //rotationForHex(PI / 2, 12);
@@ -588,10 +588,10 @@ bool PidForMoving(float distance, int direction, int dir, int16_t tick1, int16_t
           _finishMoving = true;
         break;
     }
-    err = _tick1 - _tick2;
+    err = (_tick1 - _tick2);
     integral = integral + err * dt * ki;
     D = (err - prevErr) / dt;
-    uw = err * kp  + integral * ki;
+    uw = err * kp;//  + integral * ki;
     if (dir < 0)
     {
       digitalWrite(_motor1A, HIGH);
@@ -607,15 +607,15 @@ bool PidForMoving(float distance, int direction, int dir, int16_t tick1, int16_t
       digitalWrite(_motor2B, LOW);
     }
 
-    if (uw < 0)
+    if (uw > 0)
     {
-      analogWrite(_motor1, speed );
-      analogWrite(_motor2, speed + uw);
+      analogWrite(_motor1, speed + uw);
+      analogWrite(_motor2, speed );
     }
     else
     {
-      analogWrite(_motor1, speed - uw);
-      analogWrite(_motor2, speed );
+      analogWrite(_motor1, speed );
+      analogWrite(_motor2, speed - uw);
     }
 
     prevErr = err;

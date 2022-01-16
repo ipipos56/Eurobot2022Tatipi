@@ -70,13 +70,13 @@ void setup()
 
 void loop()
 {
-  for (int i = 177; i < 256; i++)
+  for (int i = 195; i < 256; i++)
   {
-    delay(1000);
-    int time = millis();
+    delay(100);
+    long int   timer = millis();
     rotationForHex(0.38, 12, i);
     //Serial.println("RobotOfAngle:\t" + String(angleOfRobot));
-    Serial.println(String(i) + "\t" + String((millis() - time)));
+    Serial.println(String(i) + "\t" + String((millis() - timer)));
   }
   while (1);
 }
@@ -299,16 +299,29 @@ bool rotationForHex(float rad, int dir, int _speed)
           analogWrite(EN3, _speed);
           digitalWrite(IN5, LOW);
           digitalWrite(IN6, HIGH);
+          digitalWrite(IN1, HIGH);
+          digitalWrite(IN2, HIGH);
+          digitalWrite(IN3, HIGH);
+          digitalWrite(IN4, HIGH);
           break;
         case 23:
           analogWrite(EN1, _speed);
           digitalWrite(IN1, LOW);
           digitalWrite(IN2, HIGH);
+          digitalWrite(IN3, HIGH);
+          digitalWrite(IN4, HIGH);
+          digitalWrite(IN5, HIGH);
+          digitalWrite(IN6, HIGH);
           break;
         case 31:
           analogWrite(EN2, _speed);
           digitalWrite(IN3, LOW);
           digitalWrite(IN4, HIGH);
+          digitalWrite(IN1, HIGH);
+          digitalWrite(IN2, HIGH);
+          digitalWrite(IN5, HIGH);
+          digitalWrite(IN6, HIGH);
+          
           break;
       }
     }
@@ -320,16 +333,28 @@ bool rotationForHex(float rad, int dir, int _speed)
           analogWrite(EN3, _speed);
           digitalWrite(IN5, HIGH);
           digitalWrite(IN6, LOW);
+          digitalWrite(IN1, HIGH);
+          digitalWrite(IN2, HIGH);
+          digitalWrite(IN3, HIGH);
+          digitalWrite(IN4, HIGH);
           break;
         case 23:
           analogWrite(EN1, _speed);
           digitalWrite(IN1, HIGH);
           digitalWrite(IN2, LOW);
+          digitalWrite(IN3, HIGH);
+          digitalWrite(IN4, HIGH);
+          digitalWrite(IN5, HIGH);
+          digitalWrite(IN6, HIGH);
           break;
         case 31:
           analogWrite(EN2, _speed);
           digitalWrite(IN3, HIGH);
           digitalWrite(IN4, LOW);
+          digitalWrite(IN1, HIGH);
+          digitalWrite(IN2, HIGH);
+          digitalWrite(IN5, HIGH);
+          digitalWrite(IN6, HIGH);
           break;
       }
     }

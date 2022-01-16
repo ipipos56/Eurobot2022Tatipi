@@ -100,10 +100,14 @@ void messageCheck()
     if(statusMes == "1" and stopMotors == "False")
     {
       checked = true;
-      Serial.println(message);
-      for(int i = 0;i<doc["points"].size();i++)
+      String coordsTest =  doc["points"][0];
+      Serial.println(message + " " + coordsTest);
+      for(int i = 1;i<=doc["points"].size();i++)
       {
-         currentMovement(doc["points"][i]["x"], doc["points"][i]["y"]); 
+         String coords =  doc["points"][i];
+         int commaIndex = coords.indexOf(',');
+         currentMovement((coords.substring(0,commaIndex)).toFloat(),(coords.substring(commaIndex+1)).toFloat()); 
+         delay(1000);
       }
     }
     else
