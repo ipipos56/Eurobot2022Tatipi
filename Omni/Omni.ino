@@ -1,4 +1,5 @@
 #include <EncButton.h>
+#include <Servo.h>
 
 #define EB_BETTER_ENC
 #define pi PI
@@ -8,8 +9,10 @@
 #define Radius 0.32 * 100
 #define speed 180
 
-float kpA = 10, kpB = 10, kpC = 10;
-float kiA = 0.25, kiB = 0.25, kiC = 0.25;
+Servo myservo;
+
+float kpA = 5, kpB = 5, kpC = 5;
+float kiA = 0.0015, kiB = 0.0015, kiC = 0.0015;
 float kdA = 2, kdB = 2, kdC = 2;
 
 bool _finishMoving = 0;
@@ -29,7 +32,7 @@ const unsigned int EN3 = 4;
 
 float angleOfRobot = 0;
 float prevErrA, prevErrB, prevErrC;
-float integralA, integralB, integralC;
+float integralA = 0, integralB = 0, integralC = 0;
 float Da, Db, Dc;
 float alpha = 0;
 float Va = 0;
@@ -45,9 +48,7 @@ float Mc = 1;
 
 int velocity = 250;
 int EncMaxNum = 0;
-int dt = 5;
-int moveTime = 2000;
-int moveEnc = 2000;
+int dt = 0.001;
 int maxEnc = 0;
 
 int dirA = 0;
@@ -65,6 +66,7 @@ bool m3;
 int tickA = 0;
 int tickB = 0;
 int tickC = 0;
+
 float errA = 0;
 float errB = 0;
 float errC = 0;
@@ -138,7 +140,6 @@ void SyncMove()
   enc1.tick();
   enc2.tick();
   enc3.tick();
-  float kp = 0.5;
   if (m1)
   {
     tickA = enc1.counter;
@@ -147,7 +148,7 @@ void SyncMove()
       maxEnc = tickA;
     }
     m1 = !m1;
-    Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
+    //Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
   }
   if (m2)
   {
@@ -157,7 +158,7 @@ void SyncMove()
       maxEnc = tickB;
     }
     m2 = !m2;
-    Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
+    //Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
   }
   if (m3)
   {
@@ -167,17 +168,22 @@ void SyncMove()
       maxEnc = tickC;
     }
     m3 = !m3;
-    Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
+    //Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
   }
-
   errA = Ma * maxEnc - tickA;
   errB = Mb * maxEnc - tickB;
   errC = Mc * maxEnc - tickC;
-  Ua = kpA * errA;
+  integralA = integralA + errA * dt;
+  integralB = integralB + errB * dt;
+  integralC = integralC + errC * dt;
+  Da = (errA - prevErrA)/dt;
+  Db = (errB - prevErrB)/dt;
+  Dc = (errC - prevErrC)/dt;
+  Ua = kpA * errA + integralA * kiA;
   Va = Ua + Va_base;
-  Ub = kpB * errB;
+  Ub = kpB * errB + integralB* kiB;
   Vb = Ub + Vb_base;
-  Uc = kpC * errC;
+  Uc = kpC * errC + integralC * kiC;
   Vc = Uc + Vc_base;
   analogWrite(EN1, abs((int)Va));
   analogWrite(EN2, abs((int)Vb));
@@ -214,10 +220,6 @@ void SyncMove()
   }
 }
 
-void MoveRobot()
-{
-
-}
 
 void setup()
 {
@@ -230,7 +232,9 @@ void setup()
 }
 void loop()
 {
-  alpha = -PI / 3;
+  //PidForMoving(1, 0, 2, 0.01, 0.02, 0.01);
+  
+  alpha = PI / 3;
   CalculateSpeed();
   CalculateKoef();
   while (1)
@@ -243,12 +247,15 @@ void loop()
 
 void attachment()
 {
+  myservo.attach(12);
+  myservo.write(0); 
   enc1.attach(TURN_HANDLER, myTurn1);
   enc2.attach(TURN_HANDLER, myTurn2);
   enc3.attach(TURN_HANDLER, myTurn3);
 }
 void initialization()
 {
+  
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(EN1, OUTPUT);
@@ -291,11 +298,6 @@ bool PidForMoving(int motor, int16_t tick1, float kp, float ki, float kd, float 
   uint32_t timer;
   while (1)
   {
-    if (millis() - timer >= 10000)
-    {
-      timer = millis();
-      break;
-    }
     switch (motor)
     {
       case 1:
