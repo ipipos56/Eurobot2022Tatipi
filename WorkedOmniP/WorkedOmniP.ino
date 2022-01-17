@@ -6,7 +6,7 @@
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-#define speed 255
+#define speed 250
 
 bool _finishMoving = 0;
 
@@ -25,8 +25,11 @@ const unsigned int EN3 = 4;
 
 float angleOfRobot = 0;
 float prevErrA, prevErrB, prevErrC;
-float integralA, integralB, integralC;
-float Da, Db, Dc;
+float integralA = 0, integralB = 0, integralC = 0;
+float kpA = 0.5, kpB = 0.5, kpC = 0.5;
+float kiA = 0.025, kiB = 0.025, kiC = 0.025;
+float kdA = 10, kdB = 10, kdC = 10;
+float Da = 0, Db = 0, Dc = 0;
 float alpha = 0;
 float Va = 0;
 float Vb = 0;
@@ -41,7 +44,7 @@ float Mc = 1;
 
 int velocity = 250;
 int EncMaxNum = 0;
-int dt = 5;
+float dt = 0.01;
 int moveTime = 2000;
 int moveEnc = 2000;
 int maxEnc = 0;
@@ -61,6 +64,7 @@ bool m3;
 int tickA = 0;
 int tickB = 0;
 int tickC = 0;
+
 float errA = 0;
 float errB = 0;
 float errC = 0;
@@ -130,11 +134,10 @@ void CalculateKoef()
 
 void SyncMove()
 {
-  
+
   enc1.tick();
   enc2.tick();
   enc3.tick();
-  float kp = 0.5;
   if (m1)
   {
     tickA = enc1.counter;
@@ -166,13 +169,21 @@ void SyncMove()
     Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
   }
   errA = Ma * maxEnc - tickA;
-  Ua = kp * errA;
+  integralA = integralA + errA * dt;
+  Da = (errA - prevErrA) / dt;
+  Ua = 1.5 * errA;// + Da * kdA;// + kiA * integralA;;// + integralA + ;
   Va = Ua + Va_base;
+  
   errB = Mb * maxEnc - tickB;
-  Ub = kp * errB;
+  integralB = integralB + errB * dt;
+  Db = (errB - prevErrB) / dt;
+  Ub = 1.5 * errB;// + Db * kdB;// + kiB * integralB;//;// + integralB;
   Vb = Ub + Vb_base;
+  
   errC = Mc * maxEnc - tickC;
-  Uc = kp * errC;
+  integralC = integralC + errC * dt;
+  Dc = (errC - prevErrC) / dt;
+  Uc = 1.5 * errC;// + Dc * kdC;// + kiC * integralC;//;// + integralC;
   Vc = Uc + Vc_base;
   analogWrite(EN1, abs((int)Va));
   analogWrite(EN2, abs((int)Vb));
@@ -207,11 +218,15 @@ void SyncMove()
     digitalWrite(IN5, LOW);
     digitalWrite(IN6, HIGH);
   }
+  prevErrA = errA;
+  prevErrB = errB;
+  prevErrC = errC;
+
 }
 
 void MoveRobot()
 {
-  
+
 }
 
 void setup()
@@ -228,10 +243,8 @@ void loop()
   alpha = PI/4;
   CalculateSpeed();
   CalculateKoef();
-  float kpA = 0.5, kpB = 0.5, kpC = 0.5;
-  float kiA = 0.25, kiB = 0.25, kiC = 0.25;
-  float kdA = 2, kdB = 2, kdC = 2;
-  while(1)
+  
+  while (1)
   {
     SyncMove();
   }

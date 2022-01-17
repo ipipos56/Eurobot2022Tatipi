@@ -6,7 +6,11 @@
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-#define speed 255
+#define speed 180
+
+float kpA = 10, kpB = 10, kpC = 10;
+float kiA = 0.25, kiB = 0.25, kiC = 0.25;
+float kdA = 2, kdB = 2, kdC = 2;
 
 bool _finishMoving = 0;
 
@@ -127,10 +131,10 @@ void CalculateKoef()
     Mc = 0;
   }
 }
-
+float sumErr = 0;
 void SyncMove()
 {
-  
+
   enc1.tick();
   enc2.tick();
   enc3.tick();
@@ -165,14 +169,15 @@ void SyncMove()
     m3 = !m3;
     Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
   }
+
   errA = Ma * maxEnc - tickA;
-  Ua = kp * errA;
-  Va = Ua + Va_base;
   errB = Mb * maxEnc - tickB;
-  Ub = kp * errB;
-  Vb = Ub + Vb_base;
   errC = Mc * maxEnc - tickC;
-  Uc = kp * errC;
+  Ua = kpA * errA;
+  Va = Ua + Va_base;
+  Ub = kpB * errB;
+  Vb = Ub + Vb_base;
+  Uc = kpC * errC;
   Vc = Uc + Vc_base;
   analogWrite(EN1, abs((int)Va));
   analogWrite(EN2, abs((int)Vb));
@@ -211,7 +216,7 @@ void SyncMove()
 
 void MoveRobot()
 {
-  
+
 }
 
 void setup()
@@ -225,13 +230,10 @@ void setup()
 }
 void loop()
 {
-  alpha = PI/4;
+  alpha = -PI / 3;
   CalculateSpeed();
   CalculateKoef();
-  float kpA = 0.5, kpB = 0.5, kpC = 0.5;
-  float kiA = 0.25, kiB = 0.25, kiC = 0.25;
-  float kdA = 2, kdB = 2, kdC = 2;
-  while(1)
+  while (1)
   {
     SyncMove();
   }
