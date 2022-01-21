@@ -6,7 +6,7 @@
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.48 * 100
-#define speed 250
+#define speed 195
 
 const int Tick = 740;
 const int Tick2 = 1020;
@@ -19,6 +19,10 @@ int previousY = 0;
 bool _finishMoving = 0;
 
 float angleOfRobot = 0;
+
+float kpM = 2;
+float kiM = 0.01;
+float kdM = 0.01;
 
 const float d = 0.1827; //meter
 const float r = 0.058 / 2;
@@ -41,9 +45,9 @@ float v[2];
 bool m1;
 bool m2;
 bool m3;
-EncButton<EB_CALLBACK, 18, 19> enc1;
-EncButton<EB_CALLBACK, 16, 17> enc2;
-EncButton<EB_CALLBACK, 14, 15> enc3;
+EncButton<EB_CALLBACK, 19, 18> enc1;
+EncButton<EB_CALLBACK, 17, 16> enc2;
+EncButton<EB_CALLBACK, 15, 14> enc3;
 
 void setup()
 {
@@ -69,7 +73,7 @@ void setup()
 }
 void loop()
 {
-  PidForMoving(25, 31, 1, 0 , 0 , 0, 1.5, 0.8 , 2, 0.01);
+  PidForMoving(25, 31, 1, 0 , 0 , 0, 3, 0.8 , 2, 0.5);
   /*
     delay(500);
     //rotationForHex(PI / 2, 12);
@@ -486,66 +490,66 @@ bool PidForMoving(float distance, int direction, int dir, int16_t tick1, int16_t
       m3 = !m3;
       tick3 = enc3.counter;
     }
-    switch (motor)
-    {
-      case 1:
-        err2 = 0 - tick1;
-        integral2 = integral2 + err2 * dt;
-        D2 = (err2 - prevErr2) / dt;
-        uw2 = err2 * kp + integral2 * ki + D2 * kd;
-        analogWrite(EN1, abs(uw2));
-        break;
-      case 2:
-        err2 = 0 - tick2;
-        integral2 = integral2 + err2 * dt;
-        D2 = (err2 - prevErr2) / dt;
-        uw2 = err2 * kp + integral2 * ki + D2 * kd;
-        analogWrite(EN2, abs(uw2));
-        break;
-      case 3:
-        err2 = 0 - tick3;
-        integral2 = integral2 + err2 * dt;
-        D2 = (err2 - prevErr2) / dt;
-        uw2 = err2 * kp + integral2 * ki + D2 * kd;
-        analogWrite(EN3, abs(uw2));
-        break;
-    }
-    if (uw2 > 0)
-    {
-      switch (motor)
-      {
-        case 1:
-          digitalWrite(IN1, HIGH);
-          digitalWrite(IN2, LOW);
-          break;
-        case 2:
-          digitalWrite(IN3, HIGH);
-          digitalWrite(IN4, LOW);
-          break;
-        case 3:
-          digitalWrite(IN5, HIGH);
-          digitalWrite(IN6, LOW);
-          break;
-      }
-    }
-    else
-    {
-      switch (motor)
-      {
-        case 1:
-          digitalWrite(IN1, LOW);
-          digitalWrite(IN2, HIGH);
-          break;
-        case 2:
-          digitalWrite(IN3, LOW);
-          digitalWrite(IN4, HIGH);
-          break;
-        case 3:
-          digitalWrite(IN5, LOW);
-          digitalWrite(IN6, HIGH);
-          break;
-      }
-    }
+//    switch (motor)
+//    {
+//      case 1:
+//        err2 = 0 - tick1;
+//        integral2 = integral2 + err2 * dt;
+//        D2 = (err2 - prevErr2) / dt;
+//        uw2 = err2 * kpM + integral2 * kiM + D2 * kdM;
+//        analogWrite(EN1, abs(uw2));
+//        break;
+//      case 2:
+//        err2 = 0 - tick2;
+//        integral2 = integral2 + err2 * dt;
+//        D2 = (err2 - prevErr2) / dt;
+//        uw2 = err2 * kpM + integral2 * kiM + D2 * kdM;
+//        analogWrite(EN2, abs(uw2));
+//        break;
+//      case 3:
+//        err2 = 0 - tick3;
+//        integral2 = integral2 + err2 * dt;
+//        D2 = (err2 - prevErr2) / dt;
+//        uw2 = err2 * kpM + integral2 * kiM + D2 * kdM;
+//        analogWrite(EN3, abs(uw2));
+//        break;
+//    }
+//    if (uw2 > 0)
+//    {
+//      switch (motor)
+//      {
+//        case 1:
+//          digitalWrite(IN1, HIGH);
+//          digitalWrite(IN2, LOW);
+//          break;
+//        case 2:
+//          digitalWrite(IN3, HIGH);
+//          digitalWrite(IN4, LOW);
+//          break;
+//        case 3:
+//          digitalWrite(IN5, HIGH);
+//          digitalWrite(IN6, LOW);
+//          break;
+//      }
+//    }
+//    else
+//    {
+//      switch (motor)
+//      {
+//        case 1:
+//          digitalWrite(IN1, LOW);
+//          digitalWrite(IN2, HIGH);
+//          break;
+//        case 2:
+//          digitalWrite(IN3, LOW);
+//          digitalWrite(IN4, HIGH);
+//          break;
+//        case 3:
+//          digitalWrite(IN5, LOW);
+//          digitalWrite(IN6, HIGH);
+//          break;
+//      }
+//    }
 
     switch (direction)
     {
@@ -591,7 +595,7 @@ bool PidForMoving(float distance, int direction, int dir, int16_t tick1, int16_t
     err = _tick1 - _tick2;
     integral = integral + err * dt * ki;
     D = (err - prevErr) / dt;
-    uw = err * kp  + integral * ki;
+    uw = err * kp;
     if (dir < 0)
     {
       digitalWrite(_motor1A, HIGH);

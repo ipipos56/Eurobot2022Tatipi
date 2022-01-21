@@ -7,13 +7,13 @@
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-#define speed 180
+#define speed 160
 
 Servo myservo;
 
-float kpA = 5, kpB = 5, kpC = 5;
-float kiA = 0.0015, kiB = 0.0015, kiC = 0.0015;
-float kdA = 2, kdB = 2, kdC = 2;
+float kpA = 15, kpB = 15, kpC = 15;
+float kiA = 0.0005, kiB = 0.0005, kiC = 0.0005;
+float kdA = 20, kdB = 20, kdC = 20;
 
 bool _finishMoving = 0;
 
@@ -46,9 +46,9 @@ float Ma = 1;
 float Mb = 1;
 float Mc = 1;
 
-int velocity = 250;
+int velocity = 190;
 int EncMaxNum = 0;
-int dt = 0.001;
+float dt = 10;
 int maxEnc = 0;
 
 int dirA = 0;
@@ -134,6 +134,7 @@ void CalculateKoef()
   }
 }
 float sumErr = 0;
+
 void SyncMove()
 {
 
@@ -146,6 +147,7 @@ void SyncMove()
     if (EncMaxNum == 1)
     {
       maxEnc = tickA;
+      Va_base = Vmax - 7;
     }
     m1 = !m1;
     //Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
@@ -156,6 +158,7 @@ void SyncMove()
     if (EncMaxNum == 2)
     {
       maxEnc = tickB;
+      Vb_base = Vmax - 7;
     }
     m2 = !m2;
     //Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
@@ -166,6 +169,7 @@ void SyncMove()
     if (EncMaxNum == 3)
     {
       maxEnc = tickC;
+      Vc_base = Vmax - 7;
     }
     m3 = !m3;
     //Serial.println("ErrA: " + String(errA) + "\t" + "ErrB: " + String(errB) + "\t" + "ErrC: " + String(errC) + "\n");
@@ -176,15 +180,20 @@ void SyncMove()
   integralA = integralA + errA * dt;
   integralB = integralB + errB * dt;
   integralC = integralC + errC * dt;
-  Da = (errA - prevErrA)/dt;
-  Db = (errB - prevErrB)/dt;
-  Dc = (errC - prevErrC)/dt;
-  Ua = kpA * errA + integralA * kiA;
+  Da = (errA - prevErrA) / dt;
+  Db = (errB - prevErrB) / dt;
+  Dc = (errC - prevErrC) / dt;
+  prevErrA = errA;
+  prevErrB = errB;
+  prevErrC = errC;
+  Ua = kpA * errA + Da * kdA;
+  Ub = kpB * errB + Db * kdB;
+  Uc = kpC * errC + Dc * kdC; 
+  
   Va = Ua + Va_base;
-  Ub = kpB * errB + integralB* kiB;
   Vb = Ub + Vb_base;
-  Uc = kpC * errC + integralC * kiC;
   Vc = Uc + Vc_base;
+  
   analogWrite(EN1, abs((int)Va));
   analogWrite(EN2, abs((int)Vb));
   analogWrite(EN3, abs((int)Vc));
@@ -233,10 +242,17 @@ void setup()
 void loop()
 {
   //PidForMoving(1, 0, 2, 0.01, 0.02, 0.01);
-  
+
   alpha = PI / 3;
   CalculateSpeed();
   CalculateKoef();
+  enc1.counter = 0;
+  enc2.counter = 0;
+  enc3.counter = 0;
+  timer0_millis = millis();
+  bool en = 0;
+  int count = 0;
+  delay(1000);
   while (1)
   {
     SyncMove();
@@ -247,15 +263,13 @@ void loop()
 
 void attachment()
 {
-  myservo.attach(12);
-  myservo.write(0); 
   enc1.attach(TURN_HANDLER, myTurn1);
   enc2.attach(TURN_HANDLER, myTurn2);
   enc3.attach(TURN_HANDLER, myTurn3);
 }
 void initialization()
 {
-  
+
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(EN1, OUTPUT);
