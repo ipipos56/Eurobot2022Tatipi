@@ -1,10 +1,19 @@
 #include <ArduinoJson.h>
 #include <SoftwareSerial.h>
 #include "RoboClaw.h"
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 
 SoftwareSerial serial(10, 11);
 RoboClaw roboclaw(&serial, 10000);
 DynamicJsonDocument doc(2048);
+
+#define BNO055_SAMPLERATE_DELAY_MS (20)
+
+Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
+
 
 #define address1 0x80
 #define address2 0x81
@@ -18,6 +27,7 @@ DynamicJsonDocument doc(2048);
 int32_t enc1;
 int32_t enc2;
 int32_t enc3;
+int32_t x = 0;
 
 bool _finishMoving = 0;
 
@@ -136,50 +146,122 @@ float kpEncA = 1.2, kpEncB = 1.2, kpEncC = 1.2;
 float kiEncA = 0.00001, kiEncB = 0.00001, kiEncC = 0.00001;
 float kdEncA = 0.01, kdEncB = 0.01, kdEncC = 0.01;
 
+void Rotation(int settingDegree)
+{
+  Va_base = 0;
+  Vb_base = 0;
+  Vc_base = 0;
+  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  x = ((int)euler.x() + 180) % 360;
+  while (1)
+  {
+
+    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    x = ((int)euler.x() + 180) % 360;
+    if ((x - settingDegree) < 0)
+    {
+      Va_base = -25;
+      Vb_base = -25;
+      Vc_base = -25;
+    }
+    else
+    {
+      Va_base = 25;
+      Vb_base = 25;
+      Vc_base = 25;
+      //protiv
+    }
+    if (x == settingDegree)
+      break;
+    Va = (int)(Va_base);
+    Vb = (int)(Vb_base);
+    Vc = (int)(Vc_base);
+
+    if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
+    else  roboclaw.BackwardM1(address1, abs(Va));
+    if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
+    else  roboclaw.BackwardM2(address2, abs(Vb));
+    if (Vc > 0)    roboclaw.ForwardM2(address1, abs(Vc));
+    else  roboclaw.BackwardM2(address1, abs(Vc));
+
+  }
+  roboclaw.SpeedM1(address1, 0);
+  roboclaw.SpeedM2(address2, 0);
+  roboclaw.SpeedM2(address1, 0);
+  Va_base = 0;
+  Vb_base = 0;
+  Vc_base = 0;
+
+  delay(150);
+}
+
 void pidForMotor()
 {
+  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  int SettingXDegrees = ((int)euler.x() + 180) % 360;
+  //  Serial.println(SettingXDegrees);
   velocity = 0;
   CalculateSpeed();
   CalculateKoef();
   resetAll();
   kpEncA = 0.7, kpEncB = 0.7, kpEncC = 0.7;
   kiEncA = 0.001, kiEncB = 0.001, kiEncC = 0.001;
-  kdEncA = 10, kdEncB = 10, kdEncC = 10;
+  kdEncA = 5, kdEncB = 5, kdEncC = 5;
   float precent = 0.9;
   kpA = 0.6;
-  kdA = 0.6;
+  kdA = 0.4;
   kiA = 0;
   kpB = 0.6;
-  kdB = 0.6;
+  kdB = 0.4;
   kiB = 0;
   kpC = 0.6;
-  kdC = 0.6;
+  kdC = 0.4;
   kiC = 0;
   dt = 50;
   roboclaw.SpeedM1(address1, 0);
   roboclaw.SpeedM2(address2, 0);
   roboclaw.SpeedM2(address1, 0);
-  delay(2000);
   String data;
   uint8_t status1, status2, status3;
-  bool valid1, valid2, valid3;
   uint8_t _status1, _status2, _status3;
+  bool valid1, valid2, valid3;
   bool _valid1, _valid2, _valid3;
   int speed1, speed2, speed3;
   int i = 0;
   bool forI = 0;
+  bool gettingCorrection = 0;
   while (1)
   {
+    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    x = ((int)euler.x() + 180) % 360;
+    if (abs(SettingXDegrees - x) >= 2 && gettingCorrection == 0)
+    {
+      resetAll();
+      velocity = 0;
+      CalculateSpeed();
+      CalculateKoef();
+      gettingCorrection = 1;
+      Serial.println("I need to correct movement");
+    }
+    if (gettingCorrection)
+    {
+      Rotation(SettingXDegrees);
+      gettingCorrection = 0;
+      resetAll();
+      velocity = 0;
+      CalculateSpeed();
+
+      CalculateKoef();
+    }
     if (Serial.available())
     {
       data = Serial.readStringUntil('\n');
-      //Serial.println(data);
+      Serial.println(data);
       char* json = data.c_str();
       deserializeJson(doc, json);
       String statusMes = doc["status"].as<String>();
       String message = doc["message"].as<String>();
       String stopMotors = doc["stop"].as<String>();
-
       if ((statusMes == "1") && (stopMotors == "0"))
       {
         //Serial.println(message);
@@ -190,11 +272,11 @@ void pidForMotor()
         double angleDouble = angleString.toInt();
         resetAll();
         alpha = angleDouble * PI / 180;
-        velocity = 60;
+        velocity = 100;
         CalculateSpeed();
         CalculateKoef();
+        Serial.println(message);
         //Serial.println(velocity);
-        forI = 1;
       }
       else if (statusMes == "1" and stopMotors == "1")
       {
@@ -302,8 +384,14 @@ void pidForMotor()
 
 void setup()
 {
-  Serial.begin(57600);
+  Serial.begin(115200);
   roboclaw.begin(38400);
+  if (!bno.begin())
+  {
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while (1);
+  }
+  bno.setExtCrystalUse(true);
 }
 void loop()
 {
