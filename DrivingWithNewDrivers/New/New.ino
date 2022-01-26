@@ -2,7 +2,7 @@
 #include "RoboClaw.h"
 
 SoftwareSerial serial(10, 11);
-RoboClaw roboclaw(&serial, 10000);
+RoboClaw roboclaw(&serial, 4600);
 
 #define address1 0x80
 #define address2 0x81
@@ -14,17 +14,11 @@ RoboClaw roboclaw(&serial, 10000);
 #define Radius 0.32 * 100
 #define speed 160
 
-const int Tick = 1500;
+const int Tick = 2000;
 
-uint8_t status1, status2, status3;
-bool valid1, valid2, valid3;
 int32_t enc1;
 int32_t enc2;
 int32_t enc3;
-
-float kpA = 0.5, kpB = 0.5, kpC = 0.5;
-float kiA = 0.001, kiB = 0.001, kiC = 0.001;
-float kdA = 5, kdB = 5, kdC = 5;
 
 bool _finishMoving = 0;
 
@@ -44,7 +38,7 @@ float Ma = 1;
 float Mb = 1;
 float Mc = 1;
 
-int velocity = 64;
+int velocity = 20;
 int EncMaxNum = 0;
 float dt = 50;
 int maxEnc = 0;
@@ -59,6 +53,7 @@ float errC = 0;
 float Ua = 0;
 float Ub = 0;
 float Uc = 0;
+
 
 void resetAll()
 {
@@ -130,21 +125,17 @@ void CalculateKoef()
 }
 float sumErr = 0;
 
+float kpA = 1, kpB = 1, kpC = 1;
+float kiA = 0.001, kiB = 0.001, kiC = 0.001;
+float kdA = 0.05, kdB = 0.05, kdC = 0.05;
+
 void SyncMove()
 {
-  status1, status2, status3;
-  valid1, valid2, valid3;
-  enc1 = roboclaw.ReadEncM2(address1, &status1, &valid1);
-  enc2 = roboclaw.ReadEncM1(address1, &status2, &valid2);
-  enc3 = roboclaw.ReadEncM2(address2, &status3, &valid3);
-  if (max(abs(enc1), max(abs(enc2), abs(enc3))) > 10000)
-  {
-    roboclaw.ResetEncoders(address2);
-    roboclaw.ResetEncoders(address1);
-    enc1 = roboclaw.ReadEncM2(address1, &status1, &valid1);
-    enc2 = roboclaw.ReadEncM1(address1, &status2, &valid2);
-    enc3 = roboclaw.ReadEncM2(address2, &status3, &valid3);
-  }
+  uint8_t status1, status2, status3;
+  bool valid1, valid2, valid3;
+  enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
+  enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
+  enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
   switch (EncMaxNum)
   {
     case 1:
@@ -172,35 +163,28 @@ void SyncMove()
   Ua = kpA * errA;
   Ub = kpB * errB;
   Uc = kpC * errC;
-  Va = Ua + Va_base;
-  Vb = Ub + Vb_base;
-  Vc = Uc + Vc_base;
-  if (Va > 0)
-  {
-    roboclaw.ForwardM2(address1, abs(Va));
-  }
-  else
-  {
-    roboclaw.BackwardM2(address1, abs(Va));
-  }
-  if (Vb > 0)
-  {
-    roboclaw.ForwardM1(address1, abs(Vb));
-  }
-  else
-  {
-    roboclaw.BackwardM1(address1, abs(Vb));
-  }
-  if (Vc > 0)
-  {
-    roboclaw.ForwardM2(address2, abs(Vc));
-  }
-  else
-  {
-    roboclaw.BackwardM2(address2, abs(Vc));
-  }
+  Va = Va_base + Ua;
+  Vb = Vb_base + Ub;
+  Vc = Vc_base + Uc;
+  if (Va > 0)    roboclaw.ForwardM1(address1, (int)abs(Va));
+  else  roboclaw.BackwardM1(address1, (int)abs(Va));
+  if (Vb > 0)    roboclaw.ForwardM2(address2, (int)abs(Vb));
+  else  roboclaw.BackwardM2(address2, (int)abs(Vb));
+  if (Vc > 0)    roboclaw.ForwardM2(address1, (int)abs(Vc));
+  else  roboclaw.BackwardM2(address1, (int)abs(Vc));
+  //  if (Va_base > 0)    roboclaw.ForwardM1(address1, abs(Va_base));
+  //  else  roboclaw.BackwardM1(address1, abs(Va_base));
+  //  if (Vb_base > 0)    roboclaw.ForwardM2(address2, abs(Vb_base));
+  //  else  roboclaw.BackwardM2(address2, abs(Vb_base));
+  //  if (Vc_base > 0)    roboclaw.ForwardM2(address1, abs(Vc_base));
+  //  else  roboclaw.BackwardM2(address1, abs(Vc_base));
+  Serial.print("Encoder1:" + String(errA) + "\t");
+  Serial.print("Encoder2:" + String(errB) + "\t");
+  Serial.println("Encoder3:" + String(errC));
+  //  Serial.print("Encoder1:" + String(Va) + "\t");
+  //  Serial.print("Encoder2:" + String(Vb) + "\t");
+  //  Serial.println("Encoder3:" + String(Vc));
 }
-
 
 void setup()
 {
@@ -209,100 +193,26 @@ void setup()
 }
 void loop()
 {
-  delay(1000);
-  float distance = 20;
-  float _distance = abs((distance * Tick) / (2 * PI * R));
-  resetAll();
-  alpha = PI / 2;
-  CalculateSpeed();
-  CalculateKoef();
-  roboclaw.ResetEncoders(address1);
-  roboclaw.ResetEncoders(address2);
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  while (1)
-  {
-    if (abs(cos(150 * PI / 180 - alpha) * abs(maxEnc)) > _distance && (EncMaxNum == 1))
-      break;
-    if (abs(cos(30 * PI / 180 - alpha) * abs(maxEnc)) > _distance && (EncMaxNum == 2))
-      break;
-    if (abs(cos(270 * PI / 180 - alpha) * abs(maxEnc)) > _distance && (EncMaxNum == 3))
-      break;
-    SyncMove();
-  }
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  delay(500);
 
+  velocity = 50;
   resetAll();
-  alpha = 3 * PI / 4;
+  alpha = PI / 4;
   CalculateSpeed();
   CalculateKoef();
-  roboclaw.ResetEncoders(address1);
-  roboclaw.ResetEncoders(address2);
+  roboclaw.SetEncM1(address1, 0);
+  roboclaw.SetEncM2(address2, 0);
+  roboclaw.SetEncM2(address1, 0);
   roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
   roboclaw.SpeedM2(address2, 0);
+  roboclaw.SpeedM2(address1, 0);
+  delay(2000);
+  while(1);
   while (1)
   {
-    if ((cos(150 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 1))
-      break;
-    if ((cos(30 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 2))
-      break;
-    if ((cos(270 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 3))
-      break;
     SyncMove();
   }
+  Serial.println("lol");
   roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  delay(500);
-  resetAll();
-  alpha = 3 * PI / 2;
-  CalculateSpeed();
-  CalculateKoef();
-  roboclaw.ResetEncoders(address1);
-  roboclaw.ResetEncoders(address2);
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  while (1)
-  {
-    if ((cos(150 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 1))
-      break;
-    if ((cos(30 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 2))
-      break;
-    if ((cos(270 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 3))
-      break;
-    SyncMove();
-  }
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  delay(500);
-  resetAll();
-  alpha = PI;
-  CalculateSpeed();
-  CalculateKoef();
-  roboclaw.ResetEncoders(address1);
-  roboclaw.ResetEncoders(address2);
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  while (1)
-  {
-    if ((cos(150 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 1))
-      break;
-    if ((cos(30 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 2))
-      break;
-    if ((cos(270 * PI / 180 - alpha) * abs(maxEnc) > _distance) && (EncMaxNum == 3))
-      break;
-    SyncMove();
-  }
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address1, 0);
   roboclaw.SpeedM2(address2, 0);
   while (1);
 }
