@@ -191,6 +191,7 @@ void Rotation(int settingDegree)
   Va_base = 0;
   Vb_base = 0;
   Vc_base = 0;
+  delay(10);
 }
 
 void pidForMotor()
@@ -231,6 +232,9 @@ void pidForMotor()
   correction = 0;
   xx = SettingXDegrees;
   Serial.println("Hello");
+  String statusMes;
+  String message;
+  String stopMotors;
   while (1)
   {
     imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
@@ -241,9 +245,9 @@ void pidForMotor()
       Serial.println(data);
       char* json = data.c_str();
       deserializeJson(doc, json);
-      String statusMes = doc["status"].as<String>();
-      String message = doc["mes"].as<String>();
-      String stopMotors = doc["stop"].as<String>();
+      statusMes = doc["status"].as<String>();
+      message = doc["mes"].as<String>();
+      stopMotors = doc["stop"].as<String>();
       if ((statusMes == "1") && (stopMotors == "0"))
       {
         String dir = doc["dir"].as<String>();
@@ -273,8 +277,8 @@ void pidForMotor()
       {
         String angleString =  doc["angle"];
         int angleDouble = angleString.toInt();
-        if(angleDouble < 0)
-          angleDouble = (360 + angleDouble)%360;
+        if (angleDouble < 0)
+          angleDouble = (360 + angleDouble) % 360;
         roboclaw.SpeedM1(address1, 0);
         roboclaw.SpeedM2(address2, 0);
         roboclaw.SpeedM2(address1, 0);
@@ -288,15 +292,22 @@ void pidForMotor()
       }
 
     }
-     if ((abs(SettingXDegrees - x)) >= 2)
+    if ((abs(SettingXDegrees - x)) >= 2)
+    {
+      Serial.println("I am here");
+      Rotation(SettingXDegrees);
+      resetAll();
+      if (statusMes == "1" and stopMotors == "0")
       {
-        Serial.println("I am here");
-        Rotation(SettingXDegrees);
-        resetAll();
-        velocity = 0;
-        CalculateSpeed();
-        CalculateKoef();
+        velocity = 70;
       }
+      else
+      {
+        velocity = 0;
+      }
+      CalculateSpeed();
+      CalculateKoef();
+    }
     speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
     speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
     speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
