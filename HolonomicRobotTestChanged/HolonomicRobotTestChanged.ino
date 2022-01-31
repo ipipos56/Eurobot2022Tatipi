@@ -269,6 +269,8 @@ float to2PI(float rad)
     return  to2PI(rad + 2 * PI);
 }
 
+
+
 bool rotationForHex(float rad, int dir)
 {
   rotationOfRobotVectors(rad);

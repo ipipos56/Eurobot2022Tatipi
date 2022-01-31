@@ -9,8 +9,9 @@
 #include <EncButton.h>
 #define EB_BETTER_ENC
 
-
+Servo myservo12;
 Servo myservo23;
+Servo myservo31;
 SoftwareSerial serial(10, 11);
 RoboClaw roboclaw(&serial, 10000);
 DynamicJsonDocument doc(2048);
@@ -29,8 +30,8 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
 
-const unsigned int IN1 = 22;
-const unsigned int IN2 = 23;
+const unsigned int IN1 = 24;
+const unsigned int IN2 = 25;
 const unsigned int EN1 = 18;
 
 const unsigned int IN3 = 24;
@@ -45,8 +46,8 @@ const unsigned int EN3 = 17;
 bool m1 = 0;
 bool m2 = 0;
 bool m3 = 0;
-EncButton<EB_CALLBACK, 2, 3> enc12;
-EncButton<EB_CALLBACK, 4, 5> enc23;
+EncButton<EB_CALLBACK, 4, 5> enc12;
+EncButton<EB_CALLBACK, 2, 3> enc23;
 EncButton<EB_CALLBACK, 6, 7> enc31;
 
 uint32_t myTimer1;
@@ -297,6 +298,70 @@ void Rotation(int settingDegree)
   delay(10);
 }
 
+
+void UpDownLICK(int setTick, int setForServo, int numberOfUpper)
+{
+  switch (numberOfUpper)
+  {
+    case 12:
+
+      int _dir = 0;
+      int _tick = enc12.counter;
+      if ((setTick - _tick) > 0)
+      {
+        _dir = 1;
+      }
+      else
+      {
+        _dir = -1;
+      }
+      while (1)
+      {
+        enc12.tick();
+        if (m1)
+        {
+          _tick = enc12.counter;
+          Serial.println(_tick);
+          m1 = !m1;
+        }
+
+        if ((setTick - _tick) > 0)
+        {
+          _dir = 1;
+        }
+        else
+        {
+          _dir = -1;
+        }
+        switch (_dir)
+        {
+          case 1:
+            analogWrite(EN1, 150);
+            digitalWrite(IN1, HIGH);
+            digitalWrite(IN2, LOW);
+            break;
+          case -1:
+            analogWrite(EN1, 150);
+            digitalWrite(IN1, LOW);
+            digitalWrite(IN2, HIGH);
+            break;
+        }
+        if (abs(setTick - _tick) <= 1)
+        {
+          analogWrite(EN1, 0);
+          digitalWrite(IN1, LOW);
+          digitalWrite(IN2, LOW);
+          break;
+        }
+      }
+      break;
+    case 23:
+      break;
+    case 31:
+      break;
+  }
+}
+
 void pidForMotor()
 {
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
@@ -338,7 +403,6 @@ void pidForMotor()
   String statusMes;
   String message;
   String stopMotors;
-
   while (1)
   {
     if (millis() - myTimer1 >= period) {   // ищем разницу (500 мс)
@@ -407,14 +471,22 @@ void pidForMotor()
         roboclaw.SpeedM2(address2, 0);
         roboclaw.SpeedM2(address1, 0);
         correction = angleDouble;
-        //Rotation((x + correction) % 360);
         resetAll();
         velocity = 0;
         CalculateSpeed();
         CalculateKoef();
-        //correction = 0;
       }
-
+      else if (statusMes = "4" and stopMotors == "0")
+      {
+        String _StringTick = doc["tck"];
+        String angleString =  doc["angle"];
+        int angleDouble = angleString.toInt();
+        String dir = doc["dir"];
+        int _direction = dir.toInt();
+        int _Tick = _StringTick.toInt();
+        UpDownLICK(_Tick, 0, _direction);
+        servoRotation(angleDouble, _direction);
+      }
     }
     if ((abs(SettingXDegrees - x)) >= 2)
     {
@@ -618,9 +690,9 @@ void setup()
   analogWrite(EN1, 170);
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
-  myservo23.attach(12);
+  myservo23.attach(53);
   myservo23.write(180);
-  delay(1000);
+  delay(3000);
   analogWrite(EN1, 0);
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
@@ -633,10 +705,44 @@ void setup()
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
     while (1);
   }
+  Serial.println("Hello");
   bno.setExtCrystalUse(true);
 }
+
+void servoRotation(int degree, int numberOfServo)
+{
+  switch (numberOfServo)
+  {
+    case 12:
+      myservo12.attach(53);
+      myservo12.write(degree);
+      delay(300);
+      myservo12.detach();
+      break;
+    case 23:
+      myservo23.attach(51);
+      myservo23.write(degree);
+      delay(300);
+      myservo23.detach();
+      break;
+    case 31:
+      myservo31.attach(49);
+      myservo31.write(degree);
+      delay(300);
+      myservo31.detach();
+      break;
+  }
+}
+
 void loop()
 {
+  //  Serial.println("Hello");
+  //  roboclaw.BackwardM1(address2, 50);
+  //  delay(500);
+  //  roboclaw.ForwardM1(address2, 0);
+  //  UpDownLICK(-350, 0, 12);
+  //  servoRotation(90,23);
+  //roboclaw.ForwardM1(address2, 0);
   pidForMotor();
   while (1);
 }
