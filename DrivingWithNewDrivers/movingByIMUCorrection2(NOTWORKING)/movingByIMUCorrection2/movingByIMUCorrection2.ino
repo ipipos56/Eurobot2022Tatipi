@@ -5,14 +5,12 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
-#include <Servo.h>
 
-Servo myservo23;
 SoftwareSerial serial(10, 11);
 RoboClaw roboclaw(&serial, 10000);
-DynamicJsonDocument doc(2048);
+DynamicJsonDocument doc(4096);
 
-#define BNO055_SAMPLERATE_DELAY_MS (50)
+#define BNO055_SAMPLERATE_DELAY_MS (20)
 
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 
@@ -154,83 +152,6 @@ float kdEncA = 0.01, kdEncB = 0.01, kdEncC = 0.01;
 
 int direction = 12;
 
-void RotationForHex(int settingDegree, int _dir)
-{
-  Va_base = 0;
-  Vb_base = 0;
-  Vc_base = 0;
-  while (1)
-  {
-
-    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    x = ((((int)euler.x() + 180) % 360) + correction) % 360;
-    switch (_dir)
-    {
-      case 12:
-        if ((x - settingDegree) < 0)
-        {
-          Va_base = 0;
-          Vb_base = 0;
-          Vc_base = -30;
-        }
-        else
-        {
-
-          Va_base = 0;
-          Vb_base = 0;
-          Vc_base = 30;
-        }
-        break;
-      case 23:
-        if ((x - settingDegree) < 0)
-        {
-          Va_base = 0;
-          Vc_base = 0;
-          Va_base = -30;
-        }
-        else
-        {
-          Va_base = 0;
-          Vc_base = 0;
-          Va_base = 30;
-        }
-        break;
-      case 31:
-        if ((x - settingDegree) < 0)
-        {
-          Va_base = 0;
-          Vc_base = 0;
-          Vb_base = -30;
-        }
-        else
-        {
-          Va_base = 0;
-          Vc_base = 0;
-          Vb_base = 30;
-        }
-        break;
-    }
-    if (abs(x - settingDegree) <= 1)
-      break;
-    Va = (int)(Va_base);
-    Vb = (int)(Vb_base);
-    Vc = (int)(Vc_base);
-    if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
-    else  roboclaw.BackwardM1(address1, abs(Va));
-    if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
-    else  roboclaw.BackwardM2(address2, abs(Vb));
-    if (Vc > 0)    roboclaw.ForwardM2(address1, abs(Vc));
-    else  roboclaw.BackwardM2(address1, abs(Vc));
-  }
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  roboclaw.SpeedM2(address1, 0);
-  Va_base = 0;
-  Vb_base = 0;
-  Vc_base = 0;
-  delay(10);
-}
-
 void Rotation(int settingDegree)
 {
   Va_base = 0;
@@ -252,12 +173,14 @@ void Rotation(int settingDegree)
       Va_base = 30;
       Vb_base = 30;
       Vc_base = 30;
+      //protiv
     }
     if (abs(x - settingDegree) <= 1)
       break;
     Va = (int)(Va_base);
     Vb = (int)(Vb_base);
     Vc = (int)(Vc_base);
+
     if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
     else  roboclaw.BackwardM1(address1, abs(Va));
     if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
@@ -311,18 +234,15 @@ void pidForMotor()
   int previousDir = 12;
   correction = 0;
   xx = SettingXDegrees;
+  int correctionVelocity = 0;
   Serial.println("Hello");
   String statusMes;
   String message;
   String stopMotors;
-  
   while (1)
   {
-    if (millis() - myTimer1 >= period) {   // ищем разницу (500 мс)
-      myTimer1 += period;                  // сброс таймера
-      imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-      x = ((((int)euler.x() + 180) % 360) + correction) % 360;
-    }
+    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    x = ((((int)euler.x() + 180) % 360) + correction) % 360;
     if (Serial.available())
     {
       data = Serial.readStringUntil('\n');
@@ -374,31 +294,51 @@ void pidForMotor()
         CalculateKoef();
         //correction = 0;
       }
-      else if (statusMes == "3" and stopMotors == "0")
-      {
-        String angleString =  doc["angle"];
-        int angleDouble = angleString.toInt();
-        if (angleDouble < 0)
-          angleDouble = (360 + angleDouble) % 360;
-        roboclaw.SpeedM1(address1, 0);
-        roboclaw.SpeedM2(address2, 0);
-        roboclaw.SpeedM2(address1, 0);
-        correction = angleDouble;
-        //Rotation((x + correction) % 360);
-        resetAll();
-        velocity = 0;
-        CalculateSpeed();
-        CalculateKoef();
-        //correction = 0;
-      }
 
     }
-    if ((abs(SettingXDegrees - x)) >= 2)
+    //    if ((abs(SettingXDegrees - x)) >= 2)
+    //    {
+    //      Serial.println("I am here");
+    //      Rotation(SettingXDegrees);
+    //      resetAll();
+    //      if (statusMes == "1" and stopMotors == "0")
+    //      {
+    //        velocity = 70;
+    //      }
+    //      else
+    //      {
+    //        velocity = 0;
+    //      }
+    //      CalculateSpeed();
+    //      CalculateKoef();
+    //    }
+    if ((SettingXDegrees - x) < 2 && (SettingXDegrees - x) > -2)
     {
-      Rotation(SettingXDegrees);
-      resetAll();
+      if(gettingCorrection)
+        {
+          resetAll();
+          gettingCorrection = 0;
+        }
+      precent = 0.9;
       if (statusMes == "1" and stopMotors == "0")
       {
+        velocity = 70;
+      }
+      else
+      {
+        resetAll();
+        velocity = 0;
+      }
+      CalculateSpeed();
+      CalculateKoef();
+    }
+    else if ((SettingXDegrees - x) >= 2)
+    {
+      gettingCorrection = 1;
+      precent = 0;
+      if (statusMes == "1" and stopMotors == "0")
+      {
+        resetAll();
         velocity = 70;
       }
       else
@@ -407,6 +347,28 @@ void pidForMotor()
       }
       CalculateSpeed();
       CalculateKoef();
+      Va_base -= 10;
+      Vb_base -= 10;
+      Vc_base -= 10;
+    }
+    else if ((SettingXDegrees - x) <= -2)
+    {
+      gettingCorrection = 1;
+      precent = 0;
+      if (statusMes == "1" and stopMotors == "0")
+      {
+        resetAll();
+        velocity = 70;
+      }
+      else
+      {
+        velocity = 0;
+      }
+      CalculateSpeed();
+      CalculateKoef();
+      Va_base += 10;
+      Vb_base += 10;
+      Vc_base += 10;
     }
     speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
     speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
@@ -508,9 +470,9 @@ void pidForMotor()
       //    integralA = 0;
       //    integralB = 0;
       //    integralC = 0;
-      Va = (int)(Va_base + UEncA * precent + Ua * (float)(1.0 - precent));
-      Vb = (int)(Vb_base + UEncB * precent + Ub * (float)(1.0 - precent));
-      Vc = (int)(Vc_base + UEncC * precent + Uc * (float)(1.0 - precent));
+      Va = (int)(Va_base + UEncA * precent + Ua * (float)(1.0 - precent)) + correctionVelocity;
+      Vb = (int)(Vb_base + UEncB * precent + Ub * (float)(1.0 - precent)) + correctionVelocity;
+      Vc = (int)(Vc_base + UEncC * precent + Uc * (float)(1.0 - precent)) + correctionVelocity;
       switch (direction)
       {
         case 12:
@@ -555,10 +517,6 @@ void pidForMotor()
 
 void setup()
 {
-  myservo23.attach(7);
-  myservo23.write(180);
-  delay(1000);
-  myservo23.detach();
   Serial.begin(19200);
   roboclaw.begin(38400);
   if (!bno.begin())
@@ -570,6 +528,13 @@ void setup()
 }
 void loop()
 {
+  //  Rotation(67);
+  //  while (1)
+  //  {
+  //    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  //    x = ((int)euler.x() + 180 + 111) % 360;
+  //    Serial.println(String(180 - 67));
+  //  }
   pidForMotor();
   while (1);
 }

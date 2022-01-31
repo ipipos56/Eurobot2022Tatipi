@@ -5,12 +5,17 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
+#include <Servo.h>
+#include <EncButton.h>
+#define EB_BETTER_ENC
 
+
+Servo myservo23;
 SoftwareSerial serial(10, 11);
 RoboClaw roboclaw(&serial, 10000);
-DynamicJsonDocument doc(4096);
+DynamicJsonDocument doc(2048);
 
-#define BNO055_SAMPLERATE_DELAY_MS (20)
+#define BNO055_SAMPLERATE_DELAY_MS (50)
 
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 
@@ -23,6 +28,29 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
+
+const unsigned int IN1 = 22;
+const unsigned int IN2 = 23;
+const unsigned int EN1 = 18;
+
+const unsigned int IN3 = 24;
+const unsigned int IN4 = 25;
+const unsigned int EN2 = 19;
+
+const unsigned int IN5 = 26;
+const unsigned int IN6 = 27;
+const unsigned int EN3 = 17;
+
+
+bool m1 = 0;
+bool m2 = 0;
+bool m3 = 0;
+EncButton<EB_CALLBACK, 2, 3> enc12;
+EncButton<EB_CALLBACK, 4, 5> enc23;
+EncButton<EB_CALLBACK, 6, 7> enc31;
+
+uint32_t myTimer1;
+int period = 50;
 
 int enc1;
 int enc2;
@@ -149,6 +177,83 @@ float kdEncA = 0.01, kdEncB = 0.01, kdEncC = 0.01;
 
 int direction = 12;
 
+void RotationForHex(int settingDegree, int _dir)
+{
+  Va_base = 0;
+  Vb_base = 0;
+  Vc_base = 0;
+  while (1)
+  {
+
+    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    x = ((((int)euler.x() + 180) % 360) + correction) % 360;
+    switch (_dir)
+    {
+      case 12:
+        if ((x - settingDegree) < 0)
+        {
+          Va_base = 0;
+          Vb_base = 0;
+          Vc_base = -30;
+        }
+        else
+        {
+
+          Va_base = 0;
+          Vb_base = 0;
+          Vc_base = 30;
+        }
+        break;
+      case 23:
+        if ((x - settingDegree) < 0)
+        {
+          Va_base = 0;
+          Vc_base = 0;
+          Va_base = -30;
+        }
+        else
+        {
+          Va_base = 0;
+          Vc_base = 0;
+          Va_base = 30;
+        }
+        break;
+      case 31:
+        if ((x - settingDegree) < 0)
+        {
+          Va_base = 0;
+          Vc_base = 0;
+          Vb_base = -30;
+        }
+        else
+        {
+          Va_base = 0;
+          Vc_base = 0;
+          Vb_base = 30;
+        }
+        break;
+    }
+    if (abs(x - settingDegree) <= 1)
+      break;
+    Va = (int)(Va_base);
+    Vb = (int)(Vb_base);
+    Vc = (int)(Vc_base);
+    if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
+    else  roboclaw.BackwardM1(address1, abs(Va));
+    if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
+    else  roboclaw.BackwardM2(address2, abs(Vb));
+    if (Vc > 0)    roboclaw.ForwardM2(address1, abs(Vc));
+    else  roboclaw.BackwardM2(address1, abs(Vc));
+  }
+  roboclaw.SpeedM1(address1, 0);
+  roboclaw.SpeedM2(address2, 0);
+  roboclaw.SpeedM2(address1, 0);
+  Va_base = 0;
+  Vb_base = 0;
+  Vc_base = 0;
+  delay(10);
+}
+
 void Rotation(int settingDegree)
 {
   Va_base = 0;
@@ -170,14 +275,12 @@ void Rotation(int settingDegree)
       Va_base = 30;
       Vb_base = 30;
       Vc_base = 30;
-      //protiv
     }
     if (abs(x - settingDegree) <= 1)
       break;
     Va = (int)(Va_base);
     Vb = (int)(Vb_base);
     Vc = (int)(Vc_base);
-
     if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
     else  roboclaw.BackwardM1(address1, abs(Va));
     if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
@@ -235,10 +338,14 @@ void pidForMotor()
   String statusMes;
   String message;
   String stopMotors;
+
   while (1)
   {
-    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    x = ((((int)euler.x() + 180) % 360) + correction) % 360;
+    if (millis() - myTimer1 >= period) {   // ищем разницу (500 мс)
+      myTimer1 += period;                  // сброс таймера
+      imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+      x = ((((int)euler.x() + 180) % 360) + correction) % 360;
+    }
     if (Serial.available())
     {
       data = Serial.readStringUntil('\n');
@@ -290,12 +397,33 @@ void pidForMotor()
         CalculateKoef();
         //correction = 0;
       }
+      else if (statusMes == "3" and stopMotors == "0")
+      {
+        String angleString =  doc["angle"];
+        int angleDouble = angleString.toInt();
+        if (angleDouble < 0)
+          angleDouble = (360 + angleDouble) % 360;
+        roboclaw.SpeedM1(address1, 0);
+        roboclaw.SpeedM2(address2, 0);
+        roboclaw.SpeedM2(address1, 0);
+        correction = angleDouble;
+        //Rotation((x + correction) % 360);
+        resetAll();
+        velocity = 0;
+        CalculateSpeed();
+        CalculateKoef();
+        //correction = 0;
+      }
 
     }
     if ((abs(SettingXDegrees - x)) >= 2)
     {
-      Serial.println("I am here");
-      Rotation(SettingXDegrees);
+      if (statusMes == "3")
+      {
+        RotationForHex(SettingXDegrees, direction);
+      }
+      else
+        Rotation(SettingXDegrees);
       resetAll();
       if (statusMes == "1" and stopMotors == "0")
       {
@@ -453,8 +581,51 @@ void pidForMotor()
   }
 }
 
+void attachment()
+{
+  enc12.attach(TURN_HANDLER, myTurn1);
+  enc23.attach(TURN_HANDLER, myTurn2);
+  enc31.attach(TURN_HANDLER, myTurn3);
+}
+void myTurn1()
+{
+  m1 = !m1;
+}
+void myTurn2()
+{
+  m2 = !m2;
+}
+void myTurn3()
+{
+  m3 = !m3;
+}
+void initialization()
+{
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(EN1, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(EN2, OUTPUT);
+  pinMode(IN5, OUTPUT);
+  pinMode(IN6, OUTPUT);
+  pinMode(EN3, OUTPUT);
+}
 void setup()
 {
+  initialization();
+  attachment();
+  analogWrite(EN1, 170);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  myservo23.attach(12);
+  myservo23.write(180);
+  delay(1000);
+  analogWrite(EN1, 0);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  enc12.counter = 0;
+  myservo23.detach();
   Serial.begin(19200);
   roboclaw.begin(38400);
   if (!bno.begin())
@@ -466,13 +637,6 @@ void setup()
 }
 void loop()
 {
-  //  Rotation(67);
-  //  while (1)
-  //  {
-  //    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-  //    x = ((int)euler.x() + 180 + 111) % 360;
-  //    Serial.println(String(180 - 67));
-  //  }
   pidForMotor();
   while (1);
 }
