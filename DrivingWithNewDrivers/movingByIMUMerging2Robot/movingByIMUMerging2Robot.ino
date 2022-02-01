@@ -1,10 +1,8 @@
 #include <ArduinoJson.h>
-#include <SoftwareSerial.h>
 #include "RoboClaw.h"
+#include "SparkFun_BNO080_Arduino_Library.h"
+#include <SoftwareSerial.h>
 #include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BNO055.h>
-#include <utility/imumaths.h>
 #include <Servo.h>
 #include <EncButton.h>
 #define EB_BETTER_ENC
@@ -15,10 +13,11 @@ Servo myservo31;
 SoftwareSerial serial(10, 11);
 RoboClaw roboclaw(&serial, 10000);
 DynamicJsonDocument doc(4096);
-
-#define BNO055_SAMPLERATE_DELAY_MS (50)
-
-Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
+BNO080 myIMU;
+void enableReports() {
+  myIMU.enableRotationVector(50); //Send data update every 50ms
+}
+int yaw = 0, firstYaw = -1;
 
 
 #define address1 0x80
@@ -29,26 +28,6 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-
-const unsigned int IN1 = 24;
-const unsigned int IN2 = 25;
-const unsigned int EN1 = 18;
-
-const unsigned int IN3 = 22;
-const unsigned int IN4 = 23;
-const unsigned int EN2 = 19;
-
-const unsigned int IN5 = 26;
-const unsigned int IN6 = 27;
-const unsigned int EN3 = 17;
-
-
-bool m1 = 0;
-bool m2 = 0;
-bool m3 = 0;
-EncButton<EB_CALLBACK, 4, 5> enc12;
-EncButton<EB_CALLBACK, 2, 3> enc23;
-EncButton<EB_CALLBACK, 6, 7> enc31;
 
 uint32_t myTimer1;
 int period = 50;
@@ -185,9 +164,13 @@ void RotationForHex(int settingDegree, int _dir)
   Vc_base = 0;
   while (1)
   {
-
-    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    x = ((((int)euler.x() + 180) % 360) + correction) % 360;
+    if (myIMU.dataAvailable() == true)
+    {
+      yaw = ((myIMU.getYaw()) * 180.0 / PI + 360); // Convert yaw / heading to degrees
+      yaw = ((360 - firstYaw) + yaw) % 360;
+      yaw = (yaw + 180) % 360;
+    }
+    x = (360 - yaw + correction) % 360;
     switch (_dir)
     {
       case 12:
@@ -239,10 +222,10 @@ void RotationForHex(int settingDegree, int _dir)
     Va = (int)(Va_base);
     Vb = (int)(Vb_base);
     Vc = (int)(Vc_base);
-    if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
-    else  roboclaw.BackwardM1(address1, abs(Va));
-    if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
-    else  roboclaw.BackwardM2(address2, abs(Vb));
+    if (Va > 0)    roboclaw.ForwardM2(address2, abs(Va));
+    else  roboclaw.BackwardM2(address2, abs(Va));
+    if (Vb > 0)    roboclaw.ForwardM1(address1, abs(Vb));
+    else  roboclaw.BackwardM1(address1, abs(Vb));
     if (Vc > 0)    roboclaw.ForwardM2(address1, abs(Vc));
     else  roboclaw.BackwardM2(address1, abs(Vc));
   }
@@ -262,30 +245,37 @@ void Rotation(int settingDegree)
   Vc_base = 0;
   while (1)
   {
-
-    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    x = ((((int)euler.x() + 180) % 360) + correction) % 360;
+    if (millis() - myTimer1 >= period) {   // ищем разницу (500 мс)
+      myTimer1 += period;
+      if (myIMU.dataAvailable() == true)
+      {
+        yaw = ((myIMU.getYaw()) * 180.0 / PI + 360); // Convert yaw / heading to degrees
+        yaw = ((360 - firstYaw) + yaw) % 360;
+        yaw = (yaw + 180) % 360;
+        x = (360 - yaw + correction) % 360;
+      }
+    }
     if ((x - settingDegree) < 0)
     {
-      Va_base = -30;
-      Vb_base = -30;
-      Vc_base = -30;
+      Va_base = -20;
+      Vb_base = -20;
+      Vc_base = -20;
     }
     else
     {
-      Va_base = 30;
-      Vb_base = 30;
-      Vc_base = 30;
+      Va_base = 20;
+      Vb_base = 20;
+      Vc_base = 20;
     }
     if (abs(x - settingDegree) <= 1)
       break;
     Va = (int)(Va_base);
     Vb = (int)(Vb_base);
     Vc = (int)(Vc_base);
-    if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
-    else  roboclaw.BackwardM1(address1, abs(Va));
-    if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
-    else  roboclaw.BackwardM2(address2, abs(Vb));
+    if (Va > 0)    roboclaw.ForwardM2(address2, abs(Va));
+    else  roboclaw.BackwardM2(address2, abs(Va));
+    if (Vb > 0)    roboclaw.ForwardM1(address1, abs(Vb));
+    else  roboclaw.BackwardM1(address1, abs(Vb));
     if (Vc > 0)    roboclaw.ForwardM2(address1, abs(Vc));
     else  roboclaw.BackwardM2(address1, abs(Vc));
   }
@@ -297,75 +287,15 @@ void Rotation(int settingDegree)
   Vc_base = 0;
 }
 
-
-void UpDownLICK(int setTick, int setForServo, int numberOfUpper)
-{
-  switch (numberOfUpper)
-  {
-    case 12:
-
-      int _dir = 0;
-      int _tick = enc12.counter;
-      if ((setTick - _tick) > 0)
-      {
-        _dir = 1;
-      }
-      else
-      {
-        _dir = -1;
-      }
-      while (1)
-      {
-        enc12.tick();
-        if (m1)
-        {
-          _tick = enc12.counter;
-          //Serial.println(_tick);
-          m1 = !m1;
-        }
-
-        if ((setTick - _tick) > 0)
-        {
-          _dir = 1;
-        }
-        else
-        {
-          _dir = -1;
-        }
-        switch (_dir)
-        {
-          case 1:
-            analogWrite(EN1, 150);
-            digitalWrite(IN1, HIGH);
-            digitalWrite(IN2, LOW);
-            break;
-          case -1:
-            analogWrite(EN1, 150);
-            digitalWrite(IN1, LOW);
-            digitalWrite(IN2, HIGH);
-            break;
-        }
-        if (abs(setTick - _tick) <= 1)
-        {
-          analogWrite(EN1, 0);
-          digitalWrite(IN1, LOW);
-          digitalWrite(IN2, LOW);
-          break;
-        }
-      }
-      break;
-    case 23:
-      break;
-    case 31:
-      break;
-  }
-}
-
 void pidForMotor()
 {
-  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-  int SettingXDegrees = ((int)euler.x() + 180) % 360;
-  //  Serial.println(SettingXDegrees);
+  yaw = ((myIMU.getYaw()) * 180.0 / PI + 360); // Convert yaw / heading to degrees
+  yaw = ((360 - firstYaw) + yaw) % 360;
+  yaw = (yaw + 180) % 360;
+
+  int SettingXDegrees = yaw;
+  //Serial.println("Setting:" + String(SettingXDegrees));
+  //while (1);
   velocity = 0;
   CalculateSpeed();
   CalculateKoef();
@@ -395,6 +325,7 @@ void pidForMotor()
   bool gettingCorrection = 0;
   int speed1, speed2, speed3;
   int i = 0;
+  int angleDouble = 0;
   int previousDir = 12;
   correction = 0;
   xx = SettingXDegrees;
@@ -405,10 +336,14 @@ void pidForMotor()
   while (1)
   {
     if (millis() - myTimer1 >= period) {   // ищем разницу (500 мс)
-      myTimer1 += period;                  // сброс таймера
-      imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-      x = ((((int)euler.x() + 180) % 360) + correction) % 360;
-      Serial.println(x);
+      myTimer1 += period;
+      if (myIMU.dataAvailable() == true)
+      {
+        yaw = ((myIMU.getYaw()) * 180.0 / PI + 360); // Convert yaw / heading to degrees
+        yaw = ((360 - firstYaw) + yaw) % 360;
+        yaw = (yaw + 180) % 360;
+        x = (360 - yaw + correction) % 360;
+      }
     }
     if (Serial.available())
     {
@@ -427,7 +362,7 @@ void pidForMotor()
         roboclaw.SpeedM2(address2, 0);
         roboclaw.SpeedM2(address1, 0);
         String angleString =  doc["an"];
-        double angleDouble = angleString.toInt();
+        angleDouble = angleString.toInt();
         resetAll();
         alpha = angleDouble * PI / 180;
         velocity = 70;
@@ -443,6 +378,7 @@ void pidForMotor()
         CalculateKoef();
         //{"status":"1","message":"Good","stop":"1","angle":"45"}
         //{"st":"1","mes":"Good","stop":"0","an":"45","dir":"12","t":"-150"}
+        //{"st":"1","mes":"Good","stop":"1","an":"45","dir":"12"}
       }
       else if (statusMes == "2" and stopMotors == "0")
       {
@@ -464,7 +400,7 @@ void pidForMotor()
       else if (statusMes == "3" and stopMotors == "0")
       {
         String angleString =  doc["an"];
-        int angleDouble = angleString.toInt();
+        angleDouble = angleString.toInt();
         if (angleDouble < 0)
           angleDouble = (360 + angleDouble) % 360;
         roboclaw.SpeedM1(address1, 0);
@@ -476,20 +412,9 @@ void pidForMotor()
         CalculateSpeed();
         CalculateKoef();
       }
-      else if (statusMes = "4" and stopMotors == "0")
-      {
-        String _StringTick = doc["t"];
-        String angleString =  doc["an"];
-        int angleDouble = angleString.toInt();
-        String dir = doc["dir"];
-        int _direction = dir.toInt();
-        int _Tick = _StringTick.toInt();
-        UpDownLICK(_Tick, 0, _direction);
-        servoRotation(angleDouble, _direction);
-      }
     }
     if ((abs(SettingXDegrees - x)) >= 2)
-    {
+      {
       if (statusMes == "3")
       {
         RotationForHex(SettingXDegrees, direction);
@@ -507,51 +432,53 @@ void pidForMotor()
       }
       CalculateSpeed();
       CalculateKoef();
-    }
-    speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
-    speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
+      }
+  
+    
+    speed1 = roboclaw.ReadSpeedM2(address2, &_status1, &_valid1);
+    speed2 = roboclaw.ReadSpeedM1(address1, &_status2, &_valid2);
     speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
     speed1 = map(speed1, - 5000, 5000, -129, 129);
     speed2 = map(speed2, - 5000, 5000, -129, 129);
     speed3 = map(speed3, - 5000, 5000, -129, 129);
-    enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
-    enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
+    enc1 = roboclaw.ReadEncM2(address2, &status1, &valid1);
+    enc2 = roboclaw.ReadEncM1(address1, &status2, &valid2);
     enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
     if (abs(enc1) > 10000 || abs(enc2) > 10000 || abs(enc3) > 10000) resetAll();
     switch (direction)
     {
       case 12:
-        speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
-        speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
+        speed1 = roboclaw.ReadSpeedM2(address2, &_status1, &_valid1);
+        speed2 = roboclaw.ReadSpeedM1(address1, &_status2, &_valid2);
         speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
         speed1 = map(speed1, - 5000, 5000, -129, 129);
         speed2 = map(speed2, - 5000, 5000, -129, 129);
         speed3 = map(speed3, - 5000, 5000, -129, 129);
-        enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
-        enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
+        enc1 = roboclaw.ReadEncM2(address2, &status1, &valid1);
+        enc2 = roboclaw.ReadEncM1(address1, &status2, &valid2);
         enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
         break;
       case 23:
-        speed1 = roboclaw.ReadSpeedM2(address2, &_status1, &_valid1);
+        speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
         speed2 = roboclaw.ReadSpeedM2(address1, &_status2, &_valid2);
-        speed3 = roboclaw.ReadSpeedM1(address1, &_status3, &_valid3);
-        speed1 = map(speed1, - 5000, 5000, -129, 129);
-        speed2 = map(speed2, - 5000, 5000, -129, 129);
-        speed3 = map(speed3, - 5000, 5000, -129, 129);
-        enc1 = roboclaw.ReadEncM2(address2, &status1, &valid1);
-        enc2 = roboclaw.ReadEncM2(address1, &status2, &valid2);
-        enc3 = roboclaw.ReadEncM1(address1, &status3, &valid3);
-        break;
-      case 31:
-        speed1 = roboclaw.ReadSpeedM2(address1, &_status1, &_valid1);
-        speed2 = roboclaw.ReadSpeedM1(address1, &_status2, &_valid2);
         speed3 = roboclaw.ReadSpeedM2(address2, &_status3, &_valid3);
         speed1 = map(speed1, - 5000, 5000, -129, 129);
         speed2 = map(speed2, - 5000, 5000, -129, 129);
         speed3 = map(speed3, - 5000, 5000, -129, 129);
-        enc1 = roboclaw.ReadEncM2(address1, &status1, &valid1);
-        enc2 = roboclaw.ReadEncM1(address1, &status2, &valid2);
+        enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
+        enc2 = roboclaw.ReadEncM2(address1, &status2, &valid2);
         enc3 = roboclaw.ReadEncM2(address2, &status3, &valid3);
+        break;
+      case 31:
+        speed1 = roboclaw.ReadSpeedM2(address1, &_status1, &_valid1);
+        speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
+        speed3 = roboclaw.ReadSpeedM1(address1, &_status3, &_valid3);
+        speed1 = map(speed1, - 5000, 5000, -129, 129);
+        speed2 = map(speed2, - 5000, 5000, -129, 129);
+        speed3 = map(speed3, - 5000, 5000, -129, 129);
+        enc1 = roboclaw.ReadEncM2(address1, &status1, &valid1);
+        enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
+        enc3 = roboclaw.ReadEncM1(address1, &status3, &valid3);
         break;
     }
     if (abs(enc1) > 10000 || abs(enc2) > 10000 || abs(enc3) > 10000) resetAll();
@@ -596,46 +523,34 @@ void pidForMotor()
       UEncA = (kpEncA * errEncA + DEncA * kdEncA);// + integralEncA * kiEncA;
       UEncB = (kpEncB * errEncB + DEncB * kdEncB);//+ integralEncB * kiEncB;
       UEncC = (kpEncC * errEncC + DEncC * kdEncC);// + integralEncC * kiEncC;
-      //    Da = 0;
-      //    Db = 0;
-      //    Dc = 0;
-      //    DEncA = 0;
-      //    DEncB = 0;
-      //    DEncC = 0;
-      //    integralEncA = 0;
-      //    integralEncB = 0;
-      //    integralEncC = 0;
-      //    integralA = 0;
-      //    integralB = 0;
-      //    integralC = 0;
       Va = (int)(Va_base + UEncA * precent + Ua * (float)(1.0 - precent));
       Vb = (int)(Vb_base + UEncB * precent + Ub * (float)(1.0 - precent));
       Vc = (int)(Vc_base + UEncC * precent + Uc * (float)(1.0 - precent));
       switch (direction)
       {
         case 12:
-          if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
-          else  roboclaw.BackwardM1(address1, abs(Va));
-          if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
-          else  roboclaw.BackwardM2(address2, abs(Vb));
+          if (Va > 0)    roboclaw.ForwardM2(address2, abs(Va));
+          else  roboclaw.BackwardM2(address2, abs(Va));
+          if (Vb > 0)    roboclaw.ForwardM1(address1, abs(Vb));
+          else  roboclaw.BackwardM1(address1, abs(Vb));
           if (Vc > 0)    roboclaw.ForwardM2(address1, abs(Vc));
           else  roboclaw.BackwardM2(address1, abs(Vc));
           break;
         case 23:
-          if (Va > 0)    roboclaw.ForwardM2(address2, abs(Va));
-          else  roboclaw.BackwardM2(address2, abs(Va));
+          if (Va > 0)    roboclaw.ForwardM1(address1, abs(Va));
+          else  roboclaw.BackwardM1(address1, abs(Va));
           if (Vb > 0)    roboclaw.ForwardM2(address1, abs(Vb));
           else  roboclaw.BackwardM2(address1, abs(Vb));
-          if (Vc > 0)    roboclaw.ForwardM1(address1, abs(Vc));
-          else  roboclaw.BackwardM1(address1, abs(Vc));
+          if (Vc > 0)    roboclaw.ForwardM2(address2, abs(Vc));
+          else  roboclaw.BackwardM2(address2, abs(Vc));
           break;
         case 31:
           if (Va > 0)    roboclaw.ForwardM2(address1, abs(Va));
           else  roboclaw.BackwardM2(address1, abs(Va));
-          if (Vb > 0)    roboclaw.ForwardM1(address1, abs(Vb));
-          else  roboclaw.BackwardM1(address1, abs(Vb));
-          if (Vc > 0)    roboclaw.ForwardM2(address2, abs(Vc));
-          else  roboclaw.BackwardM2(address2, abs(Vc));
+          if (Vb > 0)    roboclaw.ForwardM2(address2, abs(Vb));
+          else  roboclaw.BackwardM2(address2, abs(Vb));
+          if (Vc > 0)    roboclaw.ForwardM1(address1, abs(Vc));
+          else  roboclaw.BackwardM1(address1, abs(Vc));
           break;
       }
       //Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
@@ -653,89 +568,36 @@ void pidForMotor()
   }
 }
 
-void attachment()
-{
-  enc12.attach(TURN_HANDLER, myTurn1);
-  enc23.attach(TURN_HANDLER, myTurn2);
-  enc31.attach(TURN_HANDLER, myTurn3);
-}
-void myTurn1()
-{
-  m1 = !m1;
-}
-void myTurn2()
-{
-  m2 = !m2;
-}
-void myTurn3()
-{
-  m3 = !m3;
-}
-void initialization()
-{
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(EN1, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN4, OUTPUT);
-  pinMode(EN2, OUTPUT);
-  pinMode(IN5, OUTPUT);
-  pinMode(IN6, OUTPUT);
-  pinMode(EN3, OUTPUT);
-}
 void setup()
 {
-  initialization();
-  attachment();
-  analogWrite(EN1, 170);
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  myservo23.attach(53);
-  myservo23.write(180);
-  delay(3000);
-  analogWrite(EN1, 0);
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  enc12.counter = 0;
-  myservo23.detach();
   Serial.begin(38400);
   roboclaw.begin(38400);
-  if (!bno.begin())
+  Wire.begin();
+  if (myIMU.begin() == false)
   {
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    Serial.println(F("BNO080 not detected at default I2C address. Check your jumpers and the hookup guide. Freezing..."));
     while (1);
   }
-  Serial.println("Hello");
-  bno.setExtCrystalUse(true);
-}
+  Wire.setClock(400000); //Increase I2C data rate to 400kHz
 
-void servoRotation(int degree, int numberOfServo)
-{
-  switch (numberOfServo)
+  myIMU.enableRotationVector(70); //Send data update every 50ms
+  while (1)
   {
-    case 12:
-      myservo12.attach(53);
-      myservo12.write(degree);
-      delay(300);
-      myservo12.detach();
-      break;
-    case 23:
-      myservo23.attach(51);
-      myservo23.write(degree);
-      delay(300);
-      myservo23.detach();
-      break;
-    case 31:
-      myservo31.attach(49);
-      myservo31.write(degree);
-      delay(300);
-      myservo31.detach();
+    if (myIMU.dataAvailable() == true)
+    {
+      firstYaw = ((myIMU.getYaw()) * 180.0 / PI + 360);
+      firstYaw = firstYaw % 360;
+    }
+    if (firstYaw != -1)
       break;
   }
 }
 
 void loop()
 {
+  roboclaw.SpeedM1(address1, 0);
+  roboclaw.SpeedM2(address2, 0);
+  roboclaw.SpeedM2(address1, 0);
   //  Serial.println("Hello");
   //  roboclaw.BackwardM1(address2, 50);
   //  delay(500);
@@ -744,5 +606,17 @@ void loop()
   //  servoRotation(90,23);
   //roboclaw.ForwardM1(address2, 0);
   pidForMotor();
+  while (1)
+  {
+    if (myIMU.dataAvailable() == true)
+    {
+      yaw = ((myIMU.getYaw()) * 180.0 / PI + 360); // Convert yaw / heading to degrees
+      yaw = ((360 - firstYaw) + yaw) % 360;
+      yaw = (yaw + 180) % 360;
+
+      Serial.print(String(firstYaw) + "\t" + String(yaw));
+      Serial.println();
+    }
+  }
   while (1);
 }
