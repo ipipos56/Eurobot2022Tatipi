@@ -242,6 +242,7 @@ void pidForMotor()
   correction = 0;
   //Serial.println("Hello");
   String statusMes = "";
+  String speed = "";
   String message = "";
   String stopMotors = "";
   String dir = "";

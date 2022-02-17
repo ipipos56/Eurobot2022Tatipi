@@ -30,9 +30,9 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
 #define Kp 3.5
-#define Ki 0.2
-#define Kd 3
-#define qpps 3500
+#define Ki 0.1
+#define Kd 1.5
+#define qpps 2000
 
 uint32_t myTimer1;
 int period = 20;
@@ -53,24 +53,34 @@ int Va_base = 0;
 int Vb_base = 0;
 int Vc_base = 0;
 int velocity;
+int accel;
 extern volatile unsigned long timer0_millis;
 
 void CalculateSpeed(int _angle)
 {
-  Va_base = velocity * cos((150 * PI / 180 + _angle * PI / 180 - alpha));
-  Vb_base = velocity * cos((30 * PI / 180 + _angle * PI / 180 - alpha));
-  Vc_base = velocity * cos((270 * PI / 180 + _angle * PI / 180 - alpha));
+  Va_base = velocity * cos((150 * PI / 180 - _angle * PI / 180 - alpha));
+  Vb_base = velocity * cos((30 * PI / 180 - _angle * PI / 180 - alpha));
+  Vc_base = velocity * cos((270 * PI / 180 - _angle * PI / 180 - alpha));
+  accel = millis();
 }
 
 void pidForMotor()
 {
-  roboclaw.SpeedM1(address1, 0);
-  roboclaw.SpeedM2(address2, 0);
-  roboclaw.SpeedM2(address1, 0);
+  roboclaw.SetM1VelocityPID(address1, Kd, Kp, Ki, qpps);
+  roboclaw.SetM2VelocityPID(address2, Kd, Kp, Ki, qpps);
+  roboclaw.SetM2VelocityPID(address1, Kd, Kp, Ki, qpps);
+  roboclaw.ForwardM1(address1, 0);
+  roboclaw.ForwardM2(address2, 0);
+  roboclaw.ForwardM2(address1, 0);
+  delay(200);
   int smn = 0;
   int _angle = 0;
-  velocity = 3300;
-  alpha = -75 * PI / 180;
+  String data;
+  String statusString = "";
+  String angleString = "";
+  String speedString = "";
+  velocity = 0;
+  alpha = 0 * PI / 180;
   CalculateSpeed(0);
   while (1)
   {
@@ -87,21 +97,49 @@ void pidForMotor()
       //Serial.println(x);
 
     }
+    if (Serial.available())
+    {
+      data = Serial.readStringUntil('\n');
+      char* json = data.c_str();
+      deserializeJson(doc, json);
+      statusString = doc[String("s")].as<String>();
+      if (statusString == "1")
+      {
+        speedString = doc[String("sp")].as<String>();
+        angleString = doc[String("a")].as<String>();
+        velocity = speedString.toInt();
+        alpha = angleString.toInt();
+        alpha = alpha * PI / 180;
+        CalculateSpeed(_angle);
+        //{"s":"1","sp":"3000","a":"45"}
+        //{"s":"2","a":"-90"}
+      }
+      if (statusString == "2")
+      {
+        angleString = doc[String("a")].as<String>();
+        _angle = angleString.toInt();
+        _angle = normilize(_angle);
+        smn = _angle - x;
+        if (smn > 180)
+          smn -= 360;
+        else if (smn < -180)
+          smn += 360;
+      }
+    }
     if ((abs(smn)) >= 2)
     {
       rotationWithPID(_angle);
     }
-    roboclaw.SpeedM1(address1,Va_base);
-    roboclaw.SpeedM2(address2,Vb_base);
-    roboclaw.SpeedM2(address1,Vc_base);
-    delay(5);
+    float kAc = min(1, (float)(millis() - accel) / 500);
+    roboclaw.SpeedM1(address1, (int)(Va_base * kAc));
+    roboclaw.SpeedM2(address2, (int)(Vb_base * kAc));
+    roboclaw.SpeedM2(address1, (int)(Vc_base * kAc));
   }
 }
 
 void setup()
 {
   Serial.begin(57600);
-  roboclaw.begin(38400);
   if (!bno.begin())
   {
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
@@ -110,12 +148,9 @@ void setup()
       Serial.println("Reconnect");
     }
   }
-  Serial.println("Hello");
   bno.setExtCrystalUse(true);
   timer0_millis = UINT32_MAX - 5000;
-  roboclaw.SetM1VelocityPID(address1, Kd, Kp, Ki, qpps);
-  roboclaw.SetM2VelocityPID(address2, Kd, Kp, Ki, qpps);
-  roboclaw.SetM2VelocityPID(address1, Kd, Kp, Ki, qpps);
+  roboclaw.begin(38400);
 }
 
 int normilize(int angle)
