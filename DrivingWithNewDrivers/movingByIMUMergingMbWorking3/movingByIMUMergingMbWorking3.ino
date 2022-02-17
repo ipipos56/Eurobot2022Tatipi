@@ -29,10 +29,10 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-#define Kp 2.73525
-#define Ki 0.56997
-#define Kd 1.23
-#define qpps 3900
+#define Kp 3.5
+#define Ki 0.2
+#define Kd 3
+#define qpps 3500
 
 uint32_t myTimer1;
 int period = 20;
@@ -70,7 +70,7 @@ void pidForMotor()
   int smn = 0;
   int _angle = 0;
   velocity = 3300;
-  alpha = 135 * PI / 180;
+  alpha = -75 * PI / 180;
   CalculateSpeed(0);
   while (1)
   {
@@ -94,6 +94,7 @@ void pidForMotor()
     roboclaw.SpeedM1(address1,Va_base);
     roboclaw.SpeedM2(address2,Vb_base);
     roboclaw.SpeedM2(address1,Vc_base);
+    delay(5);
   }
 }
 
