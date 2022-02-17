@@ -66,10 +66,10 @@ float alpha = 0;
 float Va = 0;
 float Vb = 0;
 float Vc = 0;
-float Va_base = 0;
-float Vb_base = 0;
-float Vc_base = 0;
-float Vmax = 0;
+int Va_base = 0;
+int Vb_base = 0;
+int Vc_base = 0;
+int Vmax = 0;
 float Ma = 1;
 float Mb = 1;
 float Mc = 1;
@@ -217,17 +217,17 @@ void pidForMotor()
   resetAll();
   kpEncA = 0.4, kpEncB = 0.4, kpEncC = 0.4;
   kiEncA = 0, kiEncB = 0, kiEncC = 0;
-  kdEncA = 0.15, kdEncB = 0.15, kdEncC = 0.15;
-  float precent = 0.1;
-  kpA = 0.4;
-  kdA = 0.15;
-  kiA = 0;
-  kpB = 0.4;
-  kdB = 0.15;
-  kiB = 0;
-  kpC = 0.4;
-  kdC = 0.15;
-  kiC = 0;
+  kdEncA = 0.3, kdEncB = 0.3, kdEncC = 0.3;
+  float precent = 1;
+  kpA = 2;
+  kdA = 4;
+  kiA = 0.0001;
+  kpB = 2;
+  kdB = 4;
+  kiB = 0.0001;
+  kpC = 2;
+  kdC = 4;
+  kiC = 0.0001;
   dt = 10;
   roboclaw.SpeedM1(address1, 0);
   roboclaw.SpeedM2(address2, 0);
@@ -252,8 +252,8 @@ void pidForMotor()
   int tick3 = 0;
   int _angle = 0;
   int smn = 0;
-  velocity = 70;
-  alpha = 170 * PI / 180;
+  velocity = 100;
+  alpha = 90 * PI / 180;
   CalculateSpeed(0);
   CalculateKoef();
   while (1)
@@ -269,16 +269,7 @@ void pidForMotor()
       else if (smn < -180)
         smn += 360;
       //Serial.println(x);
-      speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
-      speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
-      speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
-      //speed1 = map(speed1, - 5000, 5000, -129, 129);
-      //speed2 = map(speed2, - 5000, 5000, -129, 129);
-      //speed3 = map(speed3, - 5000, 5000, -129, 129);
-      enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
-      enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
-      enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
-      //Serial.println(String(speed1) + "\t" + String(speed2) + "\t" + String(speed3));
+
     }
     if ((abs(smn)) >= 2)
     {
@@ -289,9 +280,20 @@ void pidForMotor()
       CalculateSpeed(0);
       CalculateKoef();
     }
+    speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
+    speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
+    speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
+    speed1 = map(speed1, - 5000, 5000, -127, 127);
+    speed2 = map(speed2, - 5000, 5000, -127, 127);
+    speed3 = map(speed3, - 5000, 5000, -127, 127);
+    enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
+    enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
+    enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
     if ((abs(enc1) > 10000) || (abs(enc2) > 10000) || (abs(enc3) > 10000)) resetAll();
     if (valid1 && valid2 && valid3 && _valid1 && _valid2 && _valid3 )
     {
+      Serial.print(String(speed1) + "\t" + String(speed2) + "\t" + String(speed3) + "\t");
+      Serial.println(String(Va_base) + "\t" + String(Vb_base) + "\t" + String(Vc_base));
       switch (EncMaxNum)
       {
         case 1:
@@ -305,16 +307,17 @@ void pidForMotor()
           break;
       }
       //maxEnc = min(enc1, min(enc2, enc3));
-      errA = map(Va_base, -127, 127, -5000, 5000) - speed1;
-      errB = map(Vb_base, -127, 127, -5000, 5000) - speed2;
-      errC = map(Vc_base, -127, 127, -5000, 5000) - speed3;
+      errA = Va_base - speed1;
+      errB = Vb_base - speed2;
+      errC = Vc_base - speed3;
+      Serial.println(String(errA) + "\t" + String(errB) + "\t" + String(errC));
       //maxEnc = min(enc1 / Ma, min(enc2 / Mb, enc3 / Mc));
       errEncA = Ma * maxEnc - enc1;
       errEncB = Mb * maxEnc - enc2;
       errEncC = Mc * maxEnc - enc3;
-      Da = (errA - prevErrA) * dt;
-      Db = (errB - prevErrB) * dt;
-      Dc = (errC - prevErrC) * dt;
+      Da = (errA - prevErrA) / dt;
+      Db = (errB - prevErrB) / dt;
+      Dc = (errC - prevErrC) / dt;
       DEncA = (errEncA - prevErrEncA) / dt;
       DEncB = (errEncB - prevErrEncB) / dt;
       DEncC = (errEncC - prevErrEncC) / dt;
@@ -327,9 +330,9 @@ void pidForMotor()
       integralA = integralA + errA * dt;
       integralB = integralB + errB * dt;
       integralC = integralC + errC * dt;
-      Ua = map(kpA * errA + Da * kdA + integralA * kiA, -5000, 5000, -127, 127);
-      Ub = map(kpB * errB + Db * kdB + integralB * kiB, -5000, 5000, -127, 127);
-      Uc = map(kpC * errC + Dc * kdC + integralC * kiC, -5000, 5000, -127, 127);
+      Ua = kpA * errA + Da * kdA + integralA * kiA;
+      Ub = kpB * errB + Db * kdB + integralB * kiB;
+      Uc = kpC * errC + Dc * kdC + integralC * kiC;
       UEncA = (kpEncA * errEncA + DEncA * kdEncA + integralEncA * kiEncA);
       UEncB = (kpEncB * errEncB + DEncB * kdEncB + integralEncB * kiEncB);
       UEncC = (kpEncC * errEncC + DEncC * kdEncC + integralEncC * kiEncC);
@@ -342,13 +345,7 @@ void pidForMotor()
       else  roboclaw.BackwardM2(address2, abs(Vb));
       if (Vc > 0)    roboclaw.ForwardM2(address1, abs(Vc));
       else  roboclaw.BackwardM2(address1, abs(Vc));
-      //delay(20);
       //Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
-    }
-    else if ((abs(speed1) > 5000) || (abs(speed2) > 5000)  || (abs(speed3) > 5000) )
-    {
-      resetAll();
-      //Serial.println("error");
     }
     else
     {
