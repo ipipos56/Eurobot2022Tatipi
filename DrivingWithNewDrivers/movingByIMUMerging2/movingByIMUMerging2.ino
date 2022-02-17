@@ -1,10 +1,10 @@
 #include <ArduinoJson.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BNO055.h>
-#include <utility/imumaths.h>
 #include <SoftwareSerial.h>
 #include "RoboClaw.h"
 #include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 #include <Servo.h>
 #include <EncButton.h>
 #define EB_BETTER_ENC
@@ -16,7 +16,7 @@ SoftwareSerial serial(10, 11);
 RoboClaw roboclaw(&serial, 10000);
 DynamicJsonDocument doc(2048);
 
-#define BNO055_SAMPLERATE_DELAY_MS (20)
+#define BNO055_SAMPLERATE_DELAY_MS (100)
 
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 
@@ -81,8 +81,6 @@ int maxEnc = 0;
 int tickA = 0;
 int tickB = 0;
 int tickC = 0;
-
-extern volatile unsigned long timer0_millis;
 
 void resetAll()
 {
@@ -297,13 +295,13 @@ void pidForMotor()
   kiEncA = 0, kiEncB = 0, kiEncC = 0;
   kdEncA = 0.3, kdEncB = 0.3, kdEncC = 0.3;
   float precent = 0.8;
-  kpA = 0.5;
+  kpA = 0.4;
   kdA = 0.2;
   kiA = 0;
-  kpB = 0.5;
+  kpB = 0.4;
   kdB = 0.2;
   kiB = 0;
-  kpC = 0.5;
+  kpC = 0.4;
   kdC = 0.2;
   kiC = 0;
   dt = 10;
@@ -349,7 +347,7 @@ void pidForMotor()
       _StringTick = doc["t"].as<String>();
       dir = doc["d"].as<String>();
       angleString = doc["a"].as<String>();
-      Serial.println(String(statusMes) + "\t" + String(stopMotors));
+      //Serial.println(String(statusMes) + "\t" + String(stopMotors));
       if ((statusMes == "1") && (stopMotors == "0"))
       {
         //Serial.println(String(stopMotors) + " 1");
@@ -360,18 +358,20 @@ void pidForMotor()
         double angleDouble = angleString.toInt();
         resetAll();
         alpha = angleDouble * PI / 180;
-        velocity = 90;
+        velocity = 60;
         CalculateSpeed();
         CalculateKoef();
-        //Serial.println(message + "Da");
+        Serial.println(message + "Da");
       }
       else if ((statusMes == "1") and (stopMotors == "1"))
       {
         //Serial.println(String(stopMotors) + " 1");
-        resetAll();
+        
         velocity = 0;
+        resetAll();
         CalculateSpeed();
         CalculateKoef();
+        delay(10);
         //{"status":"1","message":"Good","stop":"1","angle":"45"}
         //{"s":"1","m":"0","a":"45","d":"12","t":"-150"}
         //{"st":"4","mes":"Good","stop":"0","an":"45","dir":"12","t":"-150"}
@@ -431,27 +431,28 @@ void pidForMotor()
       }
 
     }
-    if ((abs(SettingXDegrees - x)) >= 2)
-    {
-      Serial.println(x);
-      if (statusMes == "3")
-      {
-        RotationForHex(SettingXDegrees, direction);
-      }
-      else
-        Rotation(SettingXDegrees);
-      resetAll();
-      if (statusMes == "1" and stopMotors == "0")
-      {
-        velocity = 90;
-      }
-      else
-      {
-        velocity = 0;
-      }
-      CalculateSpeed();
-      CalculateKoef();
-    }
+//    if ((abs(SettingXDegrees - x)) >= 2)
+//    {
+//      Serial.println(x);
+//      if (statusMes == "3")
+//      {
+//        RotationForHex(SettingXDegrees, direction);
+//      }
+//      else
+//        Rotation(SettingXDegrees);
+//      resetAll();
+//      if (statusMes == "1" and stopMotors == "0")
+//      {
+//        CalculateSpeed();
+//        CalculateKoef();
+//        velocity = 80;
+//      }
+//      else
+//      {
+//        velocity = 0;
+//      }
+//
+//    }
     speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
     speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
     speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
@@ -514,10 +515,10 @@ void pidForMotor()
           maxEnc = enc3;
           break;
       }
+
       errA = Va_base - speed1;
       errB = Vb_base - speed2;
       errC = Vc_base - speed3;
-      maxEnc = min(enc1 / Ma, min(enc2 / Mb, enc3 / Mc));
       errEncA = Ma * maxEnc - enc1;
       errEncB = Mb * maxEnc - enc2;
       errEncC = Mc * maxEnc - enc3;
@@ -554,9 +555,30 @@ void pidForMotor()
       //    integralA = 0;
       //    integralB = 0;
       //    integralC = 0;
-      Va = (int)(Va_base + UEncA * precent + Ua * (float)(1.0 - precent));
-      Vb = (int)(Vb_base + UEncB * precent + Ub * (float)(1.0 - precent));
-      Vc = (int)(Vc_base + UEncC * precent + Uc * (float)(1.0 - precent));
+      switch (EncMaxNum)
+      {
+        case 1:
+
+          Va = (int)(Va_base + Ua);
+          Vb = (int)(Vb_base + UEncB * precent + Ub * (float)(1.0 - precent));
+          Vc = (int)(Vc_base + UEncC * precent + Uc * (float)(1.0 - precent));
+          break;
+        case 2:
+
+          Va = (int)(Va_base + UEncA * precent + Ua * (float)(1.0 - precent));
+          Vb = (int)(Vb_base + Ub);
+          Vc = (int)(Vc_base + UEncC * precent + Uc * (float)(1.0 - precent));
+          break;
+        case 3:
+
+          Va = (int)(Va_base + UEncA * precent + Ua * (float)(1.0 - precent));
+          Vb = (int)(Vb_base + UEncB * precent + Ub * (float)(1.0 - precent));
+          Vc = (int)(Vc_base + Uc);
+          break;
+      }
+      //      Va = (int)(Va_base + UEncA * precent + Ua * (float)(1.0 - precent));
+      //      Vb = (int)(Vb_base + UEncB * precent + Ub * (float)(1.0 - precent));
+      //      Vc = (int)(Vc_base + UEncC * precent + Uc * (float)(1.0 - precent));
       switch (direction)
       {
         case 12:
@@ -613,7 +635,6 @@ void setup()
   }
   Serial.println("Hello");
   bno.setExtCrystalUse(true);
-  timer0_millis = UINT32_MAX - 5000;
 }
 
 void loop()

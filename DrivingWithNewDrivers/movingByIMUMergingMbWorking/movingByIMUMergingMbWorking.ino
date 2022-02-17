@@ -31,11 +31,11 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define Radius 0.32 * 100
 
 uint32_t myTimer1;
-int period = 100;
+int period = 20;
 
-int enc1;
-int enc2;
-int enc3;
+long int enc1;
+long int enc2;
+long int enc3;
 int x = 0;
 int xx = 0;
 int correction = 0;
@@ -278,6 +278,7 @@ void Rotation(int settingDegree)
   Va_base = 0;
   Vb_base = 0;
   Vc_base = 0;
+  delay(10);
 }
 
 
@@ -335,6 +336,42 @@ void pidForMotor()
       imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
       x = ((((int)euler.x() + 180) % 360) + correction) % 360;
       //Serial.println(x);
+      switch (direction)
+      {
+        case 12:
+          speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
+          speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
+          speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
+          speed1 = map(speed1, - 5000, 5000, -129, 129);
+          speed2 = map(speed2, - 5000, 5000, -129, 129);
+          speed3 = map(speed3, - 5000, 5000, -129, 129);
+          enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
+          enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
+          enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
+          break;
+        case 23:
+          speed1 = roboclaw.ReadSpeedM2(address2, &_status1, &_valid1);
+          speed2 = roboclaw.ReadSpeedM2(address1, &_status2, &_valid2);
+          speed3 = roboclaw.ReadSpeedM1(address1, &_status3, &_valid3);
+          speed1 = map(speed1, - 5000, 5000, -129, 129);
+          speed2 = map(speed2, - 5000, 5000, -129, 129);
+          speed3 = map(speed3, - 5000, 5000, -129, 129);
+          enc1 = roboclaw.ReadEncM2(address2, &status1, &valid1);
+          enc2 = roboclaw.ReadEncM2(address1, &status2, &valid2);
+          enc3 = roboclaw.ReadEncM1(address1, &status3, &valid3);
+          break;
+        case 31:
+          speed1 = roboclaw.ReadSpeedM2(address1, &_status1, &_valid1);
+          speed2 = roboclaw.ReadSpeedM1(address1, &_status2, &_valid2);
+          speed3 = roboclaw.ReadSpeedM2(address2, &_status3, &_valid3);
+          speed1 = map(speed1, - 5000, 5000, -129, 129);
+          speed2 = map(speed2, - 5000, 5000, -129, 129);
+          speed3 = map(speed3, - 5000, 5000, -129, 129);
+          enc1 = roboclaw.ReadEncM2(address1, &status1, &valid1);
+          enc2 = roboclaw.ReadEncM1(address1, &status2, &valid2);
+          enc3 = roboclaw.ReadEncM2(address2, &status3, &valid3);
+          break;
+      }
     }
     if (Serial.available())
     {
@@ -360,7 +397,7 @@ void pidForMotor()
         double angleDouble = angleString.toInt();
         resetAll();
         alpha = angleDouble * PI / 180;
-        velocity = 90;
+        velocity = 50;
         CalculateSpeed();
         CalculateKoef();
         //Serial.println(message + "Da");
@@ -443,7 +480,7 @@ void pidForMotor()
       resetAll();
       if (statusMes == "1" and stopMotors == "0")
       {
-        velocity = 90;
+        velocity = 50;
       }
       else
       {
@@ -452,54 +489,7 @@ void pidForMotor()
       CalculateSpeed();
       CalculateKoef();
     }
-    speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
-    speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
-    speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
-    speed1 = map(speed1, - 5000, 5000, -129, 129);
-    speed2 = map(speed2, - 5000, 5000, -129, 129);
-    speed3 = map(speed3, - 5000, 5000, -129, 129);
-    enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
-    enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
-    enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
-    //Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
-    if ((abs(enc1) > 2000) || (abs(enc2) > 2000) || (abs(enc3) > 2000)) resetAll();
-    switch (direction)
-    {
-      case 12:
-        speed1 = roboclaw.ReadSpeedM1(address1, &_status1, &_valid1);
-        speed2 = roboclaw.ReadSpeedM2(address2, &_status2, &_valid2);
-        speed3 = roboclaw.ReadSpeedM2(address1, &_status3, &_valid3);
-        speed1 = map(speed1, - 5000, 5000, -129, 129);
-        speed2 = map(speed2, - 5000, 5000, -129, 129);
-        speed3 = map(speed3, - 5000, 5000, -129, 129);
-        enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
-        enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
-        enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
-        break;
-      case 23:
-        speed1 = roboclaw.ReadSpeedM2(address2, &_status1, &_valid1);
-        speed2 = roboclaw.ReadSpeedM2(address1, &_status2, &_valid2);
-        speed3 = roboclaw.ReadSpeedM1(address1, &_status3, &_valid3);
-        speed1 = map(speed1, - 5000, 5000, -129, 129);
-        speed2 = map(speed2, - 5000, 5000, -129, 129);
-        speed3 = map(speed3, - 5000, 5000, -129, 129);
-        enc1 = roboclaw.ReadEncM2(address2, &status1, &valid1);
-        enc2 = roboclaw.ReadEncM2(address1, &status2, &valid2);
-        enc3 = roboclaw.ReadEncM1(address1, &status3, &valid3);
-        break;
-      case 31:
-        speed1 = roboclaw.ReadSpeedM2(address1, &_status1, &_valid1);
-        speed2 = roboclaw.ReadSpeedM1(address1, &_status2, &_valid2);
-        speed3 = roboclaw.ReadSpeedM2(address2, &_status3, &_valid3);
-        speed1 = map(speed1, - 5000, 5000, -129, 129);
-        speed2 = map(speed2, - 5000, 5000, -129, 129);
-        speed3 = map(speed3, - 5000, 5000, -129, 129);
-        enc1 = roboclaw.ReadEncM2(address1, &status1, &valid1);
-        enc2 = roboclaw.ReadEncM1(address1, &status2, &valid2);
-        enc3 = roboclaw.ReadEncM2(address2, &status3, &valid3);
-        break;
-    }
-    if (abs(enc1) > 10000 || abs(enc2) > 10000 || abs(enc3) > 10000) resetAll();
+    if ((abs(enc1) > 10000) || (abs(enc2) > 10000) || (abs(enc3) > 10000)) resetAll();
     if (valid1 && valid2 && valid3 && _valid1 && _valid2 && _valid3 )
     {
       switch (EncMaxNum)
@@ -517,7 +507,7 @@ void pidForMotor()
       errA = Va_base - speed1;
       errB = Vb_base - speed2;
       errC = Vc_base - speed3;
-      maxEnc = min(enc1 / Ma, min(enc2 / Mb, enc3 / Mc));
+      //maxEnc = min(enc1 / Ma, min(enc2 / Mb, enc3 / Mc));
       errEncA = Ma * maxEnc - enc1;
       errEncB = Mb * maxEnc - enc2;
       errEncC = Mc * maxEnc - enc3;
@@ -584,7 +574,7 @@ void pidForMotor()
           else  roboclaw.BackwardM2(address2, abs(Vc));
           break;
       }
-      //Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
+      Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
     }
     else if ((abs(speed1) > 5000) || (abs(speed2) > 5000)  || (abs(speed3) > 5000) )
     {
@@ -593,7 +583,9 @@ void pidForMotor()
     }
     else
     {
-      resetAll();
+      //resetAll();
+      Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
+      Serial.println(String(speed1) + "\t" + String(speed2) + "\t" + String(speed3));
       Serial.println("error");
     }
   }

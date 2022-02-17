@@ -1,10 +1,10 @@
 #include <ArduinoJson.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BNO055.h>
-#include <utility/imumaths.h>
 #include <SoftwareSerial.h>
 #include "RoboClaw.h"
 #include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 #include <Servo.h>
 #include <EncButton.h>
 #define EB_BETTER_ENC
@@ -16,7 +16,7 @@ SoftwareSerial serial(10, 11);
 RoboClaw roboclaw(&serial, 10000);
 DynamicJsonDocument doc(2048);
 
-#define BNO055_SAMPLERATE_DELAY_MS (20)
+#define BNO055_SAMPLERATE_DELAY_MS (50)
 
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 
@@ -31,7 +31,7 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define Radius 0.32 * 100
 
 uint32_t myTimer1;
-int period = 100;
+int period = 50;
 
 int enc1;
 int enc2;
@@ -81,8 +81,6 @@ int maxEnc = 0;
 int tickA = 0;
 int tickB = 0;
 int tickC = 0;
-
-extern volatile unsigned long timer0_millis;
 
 void resetAll()
 {
@@ -179,7 +177,6 @@ void RotationForHex(int settingDegree, int _dir)
           Vb_base = 0;
           Vc_base = -30;
         }
-
         else
         {
 
@@ -296,14 +293,14 @@ void pidForMotor()
   kpEncA = 0.6, kpEncB = 0.6, kpEncC = 0.6;
   kiEncA = 0, kiEncB = 0, kiEncC = 0;
   kdEncA = 0.3, kdEncB = 0.3, kdEncC = 0.3;
-  float precent = 0.8;
-  kpA = 0.5;
+  float precent = 0.9;
+  kpA = 0.4;
   kdA = 0.2;
   kiA = 0;
-  kpB = 0.5;
+  kpB = 0.4;
   kdB = 0.2;
   kiB = 0;
-  kpC = 0.5;
+  kpC = 0.4;
   kdC = 0.2;
   kiC = 0;
   dt = 10;
@@ -322,12 +319,6 @@ void pidForMotor()
   correction = 0;
   xx = SettingXDegrees;
   //Serial.println("Hello");
-  String statusMes = "";
-  String message = "";
-  String stopMotors = "";
-  String dir = "";
-  String angleString = "";
-  String _StringTick = "";
   while (1)
   {
     if (millis() - myTimer1 >= period) {   // ищем разницу (500 мс)
@@ -336,6 +327,12 @@ void pidForMotor()
       x = ((((int)euler.x() + 180) % 360) + correction) % 360;
       //Serial.println(x);
     }
+    String statusMes = "";
+    String message = "";
+    String stopMotors = "";
+    String dir = "";
+    String angleString = "";
+    String _StringTick = "";
     if (Serial.available())
     {
       data = Serial.readStringUntil('\n');
@@ -360,10 +357,10 @@ void pidForMotor()
         double angleDouble = angleString.toInt();
         resetAll();
         alpha = angleDouble * PI / 180;
-        velocity = 90;
+        velocity = 100;
         CalculateSpeed();
         CalculateKoef();
-        //Serial.println(message + "Da");
+        Serial.println(message + "Da");
       }
       else if ((statusMes == "1") and (stopMotors == "1"))
       {
@@ -433,7 +430,6 @@ void pidForMotor()
     }
     if ((abs(SettingXDegrees - x)) >= 2)
     {
-      Serial.println(x);
       if (statusMes == "3")
       {
         RotationForHex(SettingXDegrees, direction);
@@ -443,7 +439,7 @@ void pidForMotor()
       resetAll();
       if (statusMes == "1" and stopMotors == "0")
       {
-        velocity = 90;
+        velocity = 100;
       }
       else
       {
@@ -461,8 +457,7 @@ void pidForMotor()
     enc1 = roboclaw.ReadEncM1(address1, &status1, &valid1);
     enc2 = roboclaw.ReadEncM2(address2, &status2, &valid2);
     enc3 = roboclaw.ReadEncM2(address1, &status3, &valid3);
-    //Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
-    if ((abs(enc1) > 2000) || (abs(enc2) > 2000) || (abs(enc3) > 2000)) resetAll();
+    if (abs(enc1) > 10000 || abs(enc2) > 10000 || abs(enc3) > 10000) resetAll();
     switch (direction)
     {
       case 12:
@@ -517,7 +512,6 @@ void pidForMotor()
       errA = Va_base - speed1;
       errB = Vb_base - speed2;
       errC = Vc_base - speed3;
-      maxEnc = min(enc1 / Ma, min(enc2 / Mb, enc3 / Mc));
       errEncA = Ma * maxEnc - enc1;
       errEncB = Mb * maxEnc - enc2;
       errEncC = Mc * maxEnc - enc3;
@@ -586,10 +580,10 @@ void pidForMotor()
       }
       //Serial.println(String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
     }
-    else if ((abs(speed1) > 5000) || (abs(speed2) > 5000)  || (abs(speed3) > 5000) )
+    else if (abs(speed1) > 5000 || abs(speed2) || abs(speed3))
     {
       resetAll();
-      //Serial.println("error");
+      Serial.println("error");
     }
     else
     {
@@ -602,22 +596,33 @@ void pidForMotor()
 void setup()
 {
   Serial.begin(38400);
-  roboclaw.begin(38400);
-  if (!bno.begin())
-  {
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-    while (1)
-    {
-      Serial.println("Reconnect");
-    }
-  }
   Serial.println("Hello");
-  bno.setExtCrystalUse(true);
-  timer0_millis = UINT32_MAX - 5000;
 }
 
 void loop()
 {
+  String data;
+  String statusMes = "";
+  String message = "";
+  String stopMotors = "";
+  String dir = "";
+  String angleString = "";
+  String _StringTick = "";
+  if (Serial.available())
+  {
+    data = Serial.readStringUntil('\n');
+    //delay(100);
+    Serial.println(data);
+    char* json = data.c_str();
+    deserializeJson(doc, json);
+    statusMes = doc[String("s")].as<String>();
+    message = "Good";
+    stopMotors = doc["m"].as<String>();
+    _StringTick = doc["t"].as<String>();
+    dir = doc["d"].as<String>();
+    angleString = doc["a"].as<String>();
+    Serial.println(String(statusMes) + "\t" + String(stopMotors));
+  }
   //roboclaw.ForwardM2(address2, 60);
   //  Serial.println("Hello");
   //  roboclaw.BackwardM1(address2, 50);
@@ -627,6 +632,6 @@ void loop()
   //  servoRotation(90,23);
   //roboclaw.ForwardM1(address2, 0)
   //roboclaw.SpeedM1(address2, 0);
-  pidForMotor();
+  //pidForMotor();
 
 }
