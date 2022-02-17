@@ -29,10 +29,10 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-#define Kp 3.73525
+#define Kp 2.73525
 #define Ki 0.56997
-#define Kd 0.25
-#define qpps 3600
+#define Kd 1.23
+#define qpps 3900
 
 uint32_t myTimer1;
 int period = 20;
@@ -45,27 +45,6 @@ int xx = 0;
 int correction = 0;
 bool _finishMoving = 0;
 
-float errA = 0;
-float errB = 0;
-float errC = 0;
-float errEncA = 0;
-float errEncB = 0;
-float errEncC = 0;
-float prevErrEncA = 0;
-float prevErrEncB = 0;
-float prevErrEncC = 0;
-int Ua = 0;
-int Ub = 0;
-int Uc = 0;
-int UEncA = 0;
-int UEncB = 0;
-int UEncC = 0;
-float angleOfRobot = 0;
-float prevErrA, prevErrB, prevErrC;
-float integralA = 0, integralB = 0, integralC = 0;
-float Da, Db, Dc;
-float integralEncA = 0, integralEncB = 0, integralEncC = 0;
-float DEncA, DEncB, DEncC;
 float alpha = 0;
 float Va = 0;
 float Vb = 0;
@@ -90,8 +69,8 @@ void pidForMotor()
   roboclaw.SpeedM2(address1, 0);
   int smn = 0;
   int _angle = 0;
-  velocity = 2000;
-  alpha = 10 * PI / 180;
+  velocity = 3300;
+  alpha = 135 * PI / 180;
   CalculateSpeed(0);
   while (1)
   {
@@ -120,7 +99,7 @@ void pidForMotor()
 
 void setup()
 {
-  Serial.begin(38400);
+  Serial.begin(57600);
   roboclaw.begin(38400);
   if (!bno.begin())
   {
