@@ -29,7 +29,7 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-#define Kp 3.5
+#define Kp 5
 #define Ki 1.5
 #define Kd 0
 #define qpps 7000
