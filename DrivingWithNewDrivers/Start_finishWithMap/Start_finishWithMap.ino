@@ -7,13 +7,16 @@
 #include <Wire.h>
 #include <Servo.h>
 #include <EncButton.h>
+
 #define EB_BETTER_ENC
 
 Servo myservo12;
 Servo myservo23;
 Servo myservo31;
 SoftwareSerial serial(10, 11);
+SoftwareSerial serial(12, 13);
 RoboClaw roboclaw(&serial, 10000);
+RoboClaw roboclaw2(&seria2, 10000);
 DynamicJsonDocument doc(2048);
 
 
@@ -30,9 +33,9 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
 #define Kp 6
-#define Ki 3
-#define Kd 3
-#define qpps 5000
+#define Ki 0
+#define Kd 7.5
+#define qpps 3000
 
 uint32_t myTimer1;
 int period = 100;
@@ -53,19 +56,31 @@ int Va_base = 0;
 int Vb_base = 0;
 int Vc_base = 0;
 int velocity;
-int target = 2350 * 4;
+int target = 2350 * 1;
 float sta_fin;
 bool OnTarget = false;
 int EndTimer = millis();
 int error = 0;
 extern volatile unsigned long timer0_millis;
+
+int analogPin = 0;
+int raw = 0;
+int Vin = 5;
+float Vout = 0;
+float R1 = 1000;
+float R2 = 0;
+float buffer = 0;
+
 #define BNO055_SAMPLERATE_DELAY_MS (period)
 void CalculateSpeed(int _angle)
 {
 
-  angleA = cos((150 * PI / 180 - _angle * PI / 180 - alpha));
-  angleB = cos((30 * PI / 180 - _angle * PI / 180 - alpha));
-  angleC = cos((270 * PI / 180 - _angle * PI / 180 - alpha));
+  //  angleA = cos((150 * PI / 180 - _angle * PI / 180 - alpha));
+  //  angleB = cos((30 * PI / 180 - _angle * PI / 180 - alpha));
+  //  angleC = cos((270 * PI / 180 - _angle * PI / 180 - alpha));
+  angleA = cos((150 * PI / 180 - _angle * PI / 180 - alpha - 60 * PI / 180));
+  angleB = cos((30 * PI / 180 - _angle * PI / 180 - alpha - 60 * PI / 180));
+  angleC = cos((270 * PI / 180 - _angle * PI / 180 - alpha - 60 * PI / 180));
   Va_base = velocity * angleA;
   Vb_base = velocity * angleB;
   Vc_base = velocity * angleC;
@@ -81,14 +96,16 @@ void pidForMotor()
   roboclaw.ForwardM2(address1, 0);
   int smn = 0;
   int _angle = 0;
+  int prevAngle = 0;
   String data;
   String statusString = "";
   String angleString = "";
   String speedString = "";
+  String targetString = "";
   velocity = 0;
   alpha = 0 * PI / 180;
   CalculateSpeed(_angle);
-  delay(100);
+  delay(50);
   roboclaw.SetEncM1(address1, 0);
   roboclaw.SetEncM2(address2, 0);
   roboclaw.SetEncM2(address1, 0);
@@ -104,7 +121,7 @@ void pidForMotor()
         smn -= 360;
       else if (smn < -180)
         smn += 360;
-      Serial.println(x);
+      //Serial.println(x);
     }
     if (Serial.available())
     {
@@ -116,6 +133,8 @@ void pidForMotor()
       {
         speedString = doc[String("sp")].as<String>();
         angleString = doc[String("a")].as<String>();
+        targetString = doc[String("t")].as<String>();
+        target = targetString.toInt();
         velocity = speedString.toInt();
         if (velocity > 0)
         {
@@ -132,13 +151,14 @@ void pidForMotor()
         alpha = angleString.toInt();
         alpha = alpha * PI / 180;
         CalculateSpeed(x);
-        //{"s":"1","sp":"3000","a":"45"}
+        //{"s":"1","sp":"3000","t":"1000","a":"45"}
         //{"s":"2","a":"-90"}
       }
       if (statusString == "2")
       {
         angleString = doc[String("a")].as<String>();
         _angle = angleString.toInt();
+        prevAngle = _angle;
         _angle = normilize(_angle);
         smn = _angle - x;
         if (smn > 180)
@@ -146,6 +166,37 @@ void pidForMotor()
         else if (smn < -180)
           smn += 360;
         rotationWithPID(_angle);
+        resetFunc();
+      }
+      if (statusString == "3")
+      {
+        bool rawBool = 0;
+        int _timer3 = millis();
+        while (!rawBool)
+        {
+          int timer3 = millis();
+          raw = analogRead(analogPin);
+          if (raw)
+          {
+            buffer = raw * Vin;
+            Vout = (buffer) / 1024.0;
+            buffer = (Vin / Vout) - 1;
+            R2 = R1 * buffer;
+            //Serial.print("R2: ");
+            //Serial.println(R2);
+            rawBool = !rawBool;
+          }
+          if ((timer3 - _timer3) > 500)
+            break;
+          }
+          if(rawBool)
+          {
+            Serial.println("R:" + String(R2));
+          }
+          else
+          {
+            Serial.println("Again");
+          }
       }
     }
     enc1 = roboclaw.ReadEncM1(address1);
@@ -167,11 +218,12 @@ void pidForMotor()
       roboclaw.SetEncM2(address1, 0);
       CalculateSpeed(x);
       Serial.println("v :\t" + String(enc1 + enc2 + enc3) + "\t" + String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
-      //rotationWithPID(0);
+      rotationWithPID(prevAngle);
       v = 0;
+      resetFunc();
     }
 
-    sta_fin = min(1.0, (float)((float)target - v) * 0.004) * min(1.0, (float)(v + 10.0) * 0.004);
+    sta_fin = min(1.0, (float)((float)target - v) / (target * 0.15)) * min(1.0, (float)(v + 10.0) / (target * 0.15));
     roboclaw.SpeedM1(address1, (int)(Va_base * sta_fin));
     roboclaw.SpeedM2(address2, (int)(Vb_base * sta_fin));
     roboclaw.SpeedM2(address1, (int)(Vc_base * sta_fin));
@@ -180,7 +232,7 @@ void pidForMotor()
 
 void setup()
 {
-  Serial.begin(57600);
+  Serial.begin(38400);
   if (!bno.begin())
   {
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
@@ -193,6 +245,7 @@ void setup()
   bno.setExtCrystalUse(true);
   timer0_millis = UINT32_MAX - 5000;
   roboclaw.begin(38400);
+  roboclaw2.begin(38400);
 }
 
 int normilize(int angle)
@@ -207,14 +260,14 @@ bool rotationWithPID(int _angle)
 {
   float rotationErr = 0, previousRotationErr = 0;
   float difRotation = 0, intRotation = 0, prRotation = 0;
-  float kDifRotation = 5, kIntRotation = 0.4, kPrRotation = 4;
+  float kDifRotation = 9, kIntRotation = 0.5, kPrRotation = 8;
   float _dt = 10;
   int controlAct = 0;
   int smn = 0;
   roboclaw.ForwardM1(address1, 0);
   roboclaw.ForwardM2(address2, 0);
   roboclaw.ForwardM2(address1, 0);
-  delay(200);
+  delay(50);
   while (1)
   {
     if (millis() - myTimer1 >= period)
@@ -228,7 +281,7 @@ bool rotationWithPID(int _angle)
         smn -= 360;
       else if (smn < -180)
         smn += 360;
-      Serial.println(x);
+      // Serial.println(x);
     }
     rotationErr = smn;
     prRotation = rotationErr * kPrRotation;
@@ -256,7 +309,7 @@ bool rotationWithPID(int _angle)
     int speedA = roboclaw.ReadSpeedM1(address1);
     int speedB = roboclaw.ReadSpeedM2(address2);
     int speedC = roboclaw.ReadSpeedM2(address1);
-    if ((abs(speedA) < 5) && (abs(speedB) < 5) && (abs(speedC) < 5) && (abs(rotationErr) < 1))
+    if ((abs(speedA) == 0) && (abs(speedB) == 0) && (abs(speedC) == 0) && (abs(rotationErr) < 1.0))
     {
       roboclaw.ForwardM1(address1, 0);
       roboclaw.ForwardM2(address2, 0);
@@ -269,8 +322,7 @@ bool rotationWithPID(int _angle)
     //      roboclaw.ForwardM2(address2, 0);
     //      roboclaw.ForwardM2(address1, 0);
     //      break;
-    //    }
-    delay(1);
+    //    }    delay(1);
   }
   roboclaw.ForwardM1(address1, 0);
   roboclaw.ForwardM2(address2, 0);

@@ -29,10 +29,10 @@ Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x29);
 #define R 0.058/2 * 100
 #define _R 0.16 * 100
 #define Radius 0.32 * 100
-#define Kp 6
-#define Ki 3
-#define Kd 3
-#define qpps 5000
+#define Kp 4
+#define Ki 0
+#define Kd 20
+#define qpps 6000
 
 uint32_t myTimer1;
 int period = 100;
@@ -53,7 +53,7 @@ int Va_base = 0;
 int Vb_base = 0;
 int Vc_base = 0;
 int velocity;
-int target = 2350 * 4;
+int target = 2350 * 1;
 float sta_fin;
 bool OnTarget = false;
 int EndTimer = millis();
@@ -81,6 +81,7 @@ void pidForMotor()
   roboclaw.ForwardM2(address1, 0);
   int smn = 0;
   int _angle = 0;
+  int prevAngle = 0;
   String data;
   String statusString = "";
   String angleString = "";
@@ -139,6 +140,7 @@ void pidForMotor()
       {
         angleString = doc[String("a")].as<String>();
         _angle = angleString.toInt();
+        prevAngle = _angle;
         _angle = normilize(_angle);
         smn = _angle - x;
         if (smn > 180)
@@ -167,7 +169,7 @@ void pidForMotor()
       roboclaw.SetEncM2(address1, 0);
       CalculateSpeed(x);
       Serial.println("v :\t" + String(enc1 + enc2 + enc3) + "\t" + String(enc1) + "\t" + String(enc2) + "\t" + String(enc3));
-      //rotationWithPID(0);
+      rotationWithPID(prevAngle);
       v = 0;
     }
 
@@ -207,7 +209,7 @@ bool rotationWithPID(int _angle)
 {
   float rotationErr = 0, previousRotationErr = 0;
   float difRotation = 0, intRotation = 0, prRotation = 0;
-  float kDifRotation = 5, kIntRotation = 0.4, kPrRotation = 4;
+  float kDifRotation = 6.5, kIntRotation = 0.45, kPrRotation = 4;
   float _dt = 10;
   int controlAct = 0;
   int smn = 0;
@@ -256,7 +258,7 @@ bool rotationWithPID(int _angle)
     int speedA = roboclaw.ReadSpeedM1(address1);
     int speedB = roboclaw.ReadSpeedM2(address2);
     int speedC = roboclaw.ReadSpeedM2(address1);
-    if ((abs(speedA) < 5) && (abs(speedB) < 5) && (abs(speedC) < 5) && (abs(rotationErr) < 1))
+    if ((abs(speedA) == 0) && (abs(speedB) == 0) && (abs(speedC) == 0) && (abs(rotationErr) < 1))
     {
       roboclaw.ForwardM1(address1, 0);
       roboclaw.ForwardM2(address2, 0);
