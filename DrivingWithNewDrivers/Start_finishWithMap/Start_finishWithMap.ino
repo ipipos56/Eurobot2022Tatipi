@@ -6,13 +6,7 @@
 #include "RoboClaw.h"
 #include <Wire.h>
 #include <Servo.h>
-#include <EncButton.h>
 
-#define EB_BETTER_ENC
-
-Servo myservo12;
-Servo myservo23;
-Servo myservo31;
 SoftwareSerial serial(10, 11);
 SoftwareSerial serial(12, 13);
 RoboClaw roboclaw(&serial, 10000);
