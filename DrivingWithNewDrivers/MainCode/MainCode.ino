@@ -56,7 +56,7 @@ int normilize(int angle);
 int rotationWithPID(int _angle);
 String uart();
 
-void setup() 
+void setup()
 {
   timer0_millis = UINT32_MAX - 5000;
   Serial.begin(115200);
@@ -73,7 +73,7 @@ void setup()
   }
   //bno.setExtCrystalUse(true);
 }
-void loop() 
+void loop()
 {
   decoderOfOperation(decoder(uart()));
 }
@@ -96,7 +96,7 @@ String uart()
 
 int rotationCam(int _angle)
 {
-  
+
 }
 
 int rotationWithPID(int _angle)
@@ -120,6 +120,8 @@ int rotationWithPID(int _angle)
       smn -= 360;
     else if (smn < -180)
       smn += 360;
+    alpha = smn;
+    CalculateSpeed(x);
     rotationErr = smn;
     prRotation = rotationErr * kPrRotation;
     difRotation = ((rotationErr - previousRotationErr) / _dt) * kDifRotation;
@@ -276,7 +278,7 @@ int decoderOfOperation(int status)
     send += '"';
     send += '}';
     Serial.println(send);
-    if(movingStaus == 2)
+    if (movingStaus == 2)
     {
       decoderOfOperation(decoder(externalData));
     }
@@ -313,8 +315,8 @@ int decoderOfOperation(int status)
   }
   else if (status == 4)
   {
-     String angleString = doc[String("a")].as<String>();
-     
+    String angleString = doc[String("a")].as<String>();
+
   }
   else if (status == 5)
   {
