@@ -296,8 +296,8 @@ void uart()
       }
       else if (status == 4)
       {
-        arm11.attach(52);
-        arm12.attach(53);
+        arm11.attach(53);
+        arm12.attach(52);
         b = 180 - b;
         arm11.write(a);
         arm12.write(b);
@@ -307,8 +307,8 @@ void uart()
       }
       else if (status == 5)
       {
-        arm21.attach(50);
-        arm22.attach(51);
+        arm21.attach(51);
+        arm22.attach(50);
         b = 180 - b;
         arm21.write(a);
         arm22.write(b);
@@ -316,7 +316,7 @@ void uart()
         arm21.detach();
         arm22.detach();
       }
-      else if (status == 5)
+      else if (status == 6)
       {
         if (a == 1)
         {
