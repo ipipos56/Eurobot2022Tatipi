@@ -103,10 +103,9 @@ void setup()
 void loop()
 {
   //roboclaw1.ForwardM2(address2, 0);
-  //uart();
+  uart();
   //firstStart();
   //cameraRotation(90);
-  while (1);
 }
 
 void cameraRotation(int _angle, int stat)
@@ -304,6 +303,27 @@ void uart()
         delay(250);
         arm11.detach();
         arm12.detach();
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        String send = "";
+        send += '{';
+        send += '"';
+        send += 'r';
+        send += '"';
+        send += ':';
+        send += '"';
+        send += '0';
+        send += '"';
+        send += ',';
+        send += '"';
+        send += 'a';
+        send += '"';
+        send += ':';
+        send += '"';
+        send += String(x, DEC);
+        send += '"';
+        send += '}';
+        Serial.println(send);
       }
       else if (status == 5)
       {
@@ -315,6 +335,27 @@ void uart()
         delay(250);
         arm21.detach();
         arm22.detach();
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        String send = "";
+        send += '{';
+        send += '"';
+        send += 'r';
+        send += '"';
+        send += ':';
+        send += '"';
+        send += '0';
+        send += '"';
+        send += ',';
+        send += '"';
+        send += 'a';
+        send += '"';
+        send += ':';
+        send += '"';
+        send += String(x, DEC);
+        send += '"';
+        send += '}';
+        Serial.println(send);
       }
       else if (status == 6)
       {
