@@ -116,6 +116,7 @@ void setup()
 void loop()
 {
   uart();
+  //roboclaw1.ForwardM2(address2, 0);
   //Sender(0);
   //delay(500);
 }
@@ -285,7 +286,7 @@ void uart()
         b = 180 - b;
         arm11.write(a);
         arm12.write(b);
-        delay(250);
+        delay(1000);
         arm11.detach();
         arm12.detach();
         Sender(0);
@@ -297,7 +298,7 @@ void uart()
         b = 180 - b;
         arm21.write(a);
         arm22.write(b);
-        delay(250);
+        delay(1000);
         arm21.detach();
         arm22.detach();
         Sender(0);
@@ -308,24 +309,25 @@ void uart()
         {
           if (b == 1)
           {
-
+            roboclaw1.ForwardM2(address2, 100);
           }
           else if (b == 0)
           {
-
+            roboclaw1.ForwardM2(address2, 0);
           }
         }
         else if (a == 2)
         {
           if (b == 1)
           {
-
+            roboclaw1.ForwardM2(address3, 60);
           }
           else if (b == 0)
           {
-
+            roboclaw1.ForwardM2(address3, 0);
           }
         }
+        Sender(0);
       }
     }
   }
@@ -336,7 +338,7 @@ int rotationWithPID(int _angle)
 {
   float rotationErr = 0, previousRotationErr = 0;
   float difRotation = 0, intRotation = 0, prRotation = 0;
-  float kDifRotation = 8, kIntRotation = 0.5, kPrRotation = 7;
+  float kDifRotation = 8, kIntRotation = 0.1, kPrRotation = 7;
   float _dt = 10;
   int controlAct = 0;
   int logic = 0;
