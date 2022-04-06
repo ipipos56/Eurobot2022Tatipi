@@ -73,6 +73,8 @@ float alpha = 0;
 float angleA, angleB, angleC;
 float Va_base = 0, Vb_base = 0, Vc_base = 0;
 int staticAngle = 180;
+int previousAngle = 0;
+int previousTick = 0;
 long int enc1 = 0, enc2 = 0, enc3 = 0, enc4 = 0;
 String data = "", externalData = "";
 
@@ -107,6 +109,7 @@ void setup()
   roboclaw1.SetM1VelocityPID(address2, Kd2, Kp2, Ki2, qpps2);
   roboclaw1.SetM1VelocityPID(address3, Kd3, Kp3, Ki3, qpps3);
   roboclaw1.SetM2VelocityPID(address1, Kd4, Kp4, Ki4, qpps4);
+  roboclaw1.SetEncM2(address1, 0);
   Serial.flush();
   //bno.setExtCrystalUse(true);
 }
@@ -117,33 +120,37 @@ void loop()
   //delay(500);
 }
 
-void cameraRotation(int _angle, int stat)
+void cameraRotation(int _angle)
 {
-  float rate = 1;
-  if (stat == 1)
+  float cRotationErr = 0, cPreviousRotationErr = 0;
+  float cDifRotation = 0, cIntRotation = 0, cPrRotation = 0;
+  float cKDifRotation = 8, cKIntRotation = 0.5, cKPrRotation = 7;
+  float _dt = 10;
+  int controlAct = 0;
+  int angle = _angle - previousAngle;
+  previousAngle = _angle;
+  int trueTick = (int)(800 * (float)(60.0 / 20.0)) * (float)(angle / 180.0);
+  int tick;
+  while (1)
   {
-    roboclaw1.SetEncM2(address1, 0);
-  }
-  int trueTick = (int)(1600 * (float)(_angle / 120.0));
-  bool logic = 0;
-  while (logic == 0)
-  {
-    if (trueTick > 0)
-    {
-      roboclaw1.SpeedM2(address1, 750);
-    }
+    tick = roboclaw1.ReadEncM2(address1);
+    cRotationErr = trueTick - tick + previousTick;
+    cPrRotation = cRotationErr * cKPrRotation;
+    cDifRotation = (float)((cRotationErr - cPreviousRotationErr) / _dt) * cKDifRotation;
+    cPreviousRotationErr = cRotationErr;
+    if (cRotationErr > 0)
+      controlAct = (int)(cPrRotation + cDifRotation + cIntRotation);
     else
-    {
-      roboclaw1.SpeedM2(address1, -750);
-    }
-    enc4 = roboclaw1.ReadEncM2(address1);
-    if (abs(enc4) > trueTick)
+      controlAct = (int)(cPrRotation + cDifRotation + cIntRotation);
+    roboclaw1.SpeedM2(address1, controlAct);
+    int speedD = roboclaw1.ReadSpeedM2(address1);
+    if ((abs(speedD) == 0) && (abs(cRotationErr) < 1.0))
     {
       roboclaw1.SpeedM2(address1, 0);
-      logic = 1;
       break;
     }
   }
+  previousTick = tick;
 }
 
 void Sender(bool reset)
@@ -186,6 +193,7 @@ void Sender(bool reset)
   }
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
   int x = euler.x();
+  x = 360 - x;
   send += String(x, DEC);
   send += '"';
   send += '}';
@@ -225,9 +233,9 @@ void firstStart()
 
 void CalculateSpeed(int _angle)
 {
-  angleA = cos((150 * PI / 180 - _angle * PI / 180 - alpha * PI / 180 - staticAngle * PI / 180));
-  angleB = cos((30 * PI / 180 - _angle * PI / 180 - alpha * PI / 180 - staticAngle * PI / 180));
-  angleC = cos((270 * PI / 180 - _angle * PI / 180 - alpha * PI / 180 - staticAngle * PI / 180));
+  angleA = cos((150 * PI / 180 + _angle * PI / 180 - alpha * PI / 180 - staticAngle * PI / 180));
+  angleB = cos((30 * PI / 180 + _angle * PI / 180 - alpha * PI / 180 - staticAngle * PI / 180));
+  angleC = cos((270 * PI / 180 + _angle * PI / 180 - alpha * PI / 180 - staticAngle * PI / 180));
   Va_base = velocity * angleA;
   Vb_base = velocity * angleB;
   Vc_base = velocity * angleC;
@@ -261,7 +269,7 @@ void uart()
       }
       else if (status == 2)
       {
-        cameraRotation(a, b);
+        cameraRotation(a);
         delay(50);
         Sender(0);
       }
@@ -339,6 +347,7 @@ int rotationWithPID(int _angle)
   {
     imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
     int x = euler.x();
+    x = 360 - x;
     _angle = normilize(_angle);
     int smn = _angle - x;
     if (smn > 180)
@@ -420,6 +429,7 @@ int move(int angle, long int length)
   {
     imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
     int x = euler.x();
+    x = 360 - x;
     CalculateSpeed(x);
     enc1 = roboclaw1.ReadEncM1(address1);
     enc2 = roboclaw1.ReadEncM1(address2);
