@@ -333,13 +333,14 @@ void uart()
   }
 }
 
-
+// 15000 ~ 1140, 30000 ~ 2275
 int rotationWithPID(int _angle)
 {
+  int startRot = millis();
   float rotationErr = 0, previousRotationErr = 0;
   float difRotation = 0, intRotation = 0, prRotation = 0;
-  float kDifRotation = 8, kIntRotation = 0.1, kPrRotation = 7;
-  float _dt = 10;
+  float kDifRotation = 20, kIntRotation = 0.05, kPrRotation = 50;
+  float _dt = 5;
   int controlAct = 0;
   int logic = 0;
   roboclaw1.SetEncM1(address1, 0);
@@ -381,6 +382,7 @@ int rotationWithPID(int _angle)
       logic = 1;
     }
   }
+  Serial.println(String(millis() - startRot));
   return logic;
 }
 
