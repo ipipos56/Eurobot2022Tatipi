@@ -367,19 +367,9 @@ int rotationWithPID(int _angle)
       controlAct = (int)(prRotation + difRotation + intRotation);
     else
       controlAct = (int)(prRotation + difRotation + intRotation);
-    //controlAct = constrain(abs(controlAct), 0, 127);
-    if (rotationErr > 0)
-    {
-      roboclaw1.BackwardM1(address1, abs(controlAct));
-      roboclaw1.BackwardM1(address2, abs(controlAct));
-      roboclaw1.BackwardM1(address3, abs(controlAct));
-    }
-    else
-    {
-      roboclaw1.ForwardM1(address1, abs(controlAct));
-      roboclaw1.ForwardM1(address2, abs(controlAct));
-      roboclaw1.ForwardM1(address3, abs(controlAct));
-    }
+    roboclaw1.SpeedM1(address1, controlAct);
+    roboclaw1.SpeedM1(address2, controlAct);
+    roboclaw1.SpeedM1(address3, controlAct);
     int speedA = roboclaw1.ReadSpeedM1(address1);
     int speedB = roboclaw1.ReadSpeedM1(address2);
     int speedC = roboclaw1.ReadSpeedM1(address3);
