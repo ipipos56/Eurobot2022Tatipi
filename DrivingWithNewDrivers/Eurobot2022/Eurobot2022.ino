@@ -41,6 +41,7 @@ extern volatile unsigned long timer0_millis;
 
 Servo arm11;
 Servo arm12;
+Servo kut;
 
 SoftwareSerial serial1(10, 11);
 
@@ -48,12 +49,21 @@ RoboClaw roboclaw1(&serial1, 50000);
 
 DynamicJsonDocument doc(2048);
 
+int analogPin = 1;
+int raw = 0;
+int Vin = 5;
+float Vout = 0;
+float R1 = 1000;
+float R2 = 0;
+float buffer = 0;
+
 float lengthOfRobot = 0;
 float alpha = 0;
 float angleA, angleB, angleC;
 float Va_base = 0, Vb_base = 0, Vc_base = 0;
 float alphat = 0, beta = 0;
 int staticAngle = 0;
+int movingStatus = 0;
 long int enc1 = 0, enc2 = 0, enc3 = 0, enc4 = 0;
 int cX = 0, cY = 0, AC = 0;
 String data = "", externalData = "";
@@ -62,7 +72,7 @@ void maniKinematics(int x, int y);
 void(* resetFunc) (void) = 0;
 void CalculateSpeed(int _angle);
 void uart();
-void Sender(bool reset);
+void Sender(int reset, int _tick);
 
 int move(int angle, long int length);
 int normilize(int angle);
@@ -92,9 +102,19 @@ void setup()
   Serial.flush();
   int kno =  digitalRead(A0);
   if (kno == 0)
-    Sender(2);
+  {
+    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    int x = euler.x();
+    x = 360 - x;
+    Sender(2, x, 0);
+  }
   else
-    Sender(3);
+  {
+    imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    int x = euler.x();
+    x = 360 - x;
+    Sender(3, x, 0);
+  }
 }
 
 void loop() {
@@ -154,80 +174,32 @@ void maniKinematics(int _x, int _y)
 }
 
 
-void Sender(int reset)
+void Sender(int reset, int _an, int _tick)
 {
   String send = "";
-  switch (reset)
-  {
-    case 0:
-      send += '{';
-      send += '"';
-      send += 'r';
-      send += '"';
-      send += ':';
-      send += '"';
-      send += '0';
-      send += '"';
-      send += ',';
-      send += '"';
-      send += 'a';
-      send += '"';
-      send += ':';
-      send += '"';
-      break;
-    case 1:
-      send += '{';
-      send += '"';
-      send += 'r';
-      send += '"';
-      send += ':';
-      send += '"';
-      send += '1';
-      send += '"';
-      send += ',';
-      send += '"';
-      send += 'a';
-      send += '"';
-      send += ':';
-      send += '"';
-      break;
-    case 2:
-      send += '{';
-      send += '"';
-      send += 'r';
-      send += '"';
-      send += ':';
-      send += '"';
-      send += '2';
-      send += '"';
-      send += ',';
-      send += '"';
-      send += 'a';
-      send += '"';
-      send += ':';
-      send += '"';
-      break;
-    case 3:
-      send += '{';
-      send += '"';
-      send += 'r';
-      send += '"';
-      send += ':';
-      send += '"';
-      send += '3';
-      send += '"';
-      send += ',';
-      send += '"';
-      send += 'a';
-      send += '"';
-      send += ':';
-      send += '"';
-      break;
-  }
-  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-  int x = euler.x();
-  x = 360 - x;
-  send += String(x, DEC);
+  send += '{';
+  send += '"';
+  send += 'r';
+  send += '"';
+  send += ':';
+  send += '"';
+  send += String(reset, DEC);
+  send += '"';
+  send += ',';
+  send += '"';
+  send += 'a';
+  send += '"';
+  send += ':';
+  send += '"';
+  send += String(_an, DEC);
+  send += '"';
+  send += ',';
+  send += '"';
+  send += 't';
+  send += '"';
+  send += ':';
+  send += '"';
+  send += String(_tick, DEC);
   send += '"';
   send += '}';
   Serial.println(send);
@@ -247,9 +219,17 @@ void CalculateSpeed(int _angle)
 
 void uart()
 {
-  if (Serial.available() > 0)
+  if ((Serial.available() > 0) || (movingStatus == 1))
   {
-    data = Serial.readStringUntil('\n');
+    if (movingStatus == 1)
+    {
+      data = externalData;
+      movingStatus = 0;
+    }
+    else
+    {
+      data = Serial.readStringUntil('\n');
+    }
     char* json = data.c_str();
     DeserializationError error =  deserializeJson(doc, json);
     if (!error)
@@ -265,24 +245,62 @@ void uart()
       Serial.flush();
       if (status == 0)
       {
-        Sender(0);
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        x = 360 - x;
+        Sender(1, x, 0);
         resetFunc();
       }
       else if (status == 1)
       {
-        int movingStaus = move(a, b);
+        move(a, b);
         delay(50);
-        Sender(0);
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        x = 360 - x;
+        Sender(0, x, lengthOfRobot);
+      }
+      else if (status == 2)
+      {
+        int rawBool = 0;
+        raw = analogRead(analogPin);
+        if (raw)
+        {
+          buffer = raw * Vin;
+          Vout = (buffer) / 1024.0;
+          buffer = (Vin / Vout) - 1;
+          R2 = R1 * buffer;
+          if (R2 > 300 && R2 < 500)
+            rawBool = 3;
+          else if (R2 > 800 && R2 < 1200)
+            rawBool = 2;
+          else if (R2 > 4500 && R2 < 5000)
+            rawBool = 1;
+        }
+        else
+        {
+          rawBool = 0;
+        }
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        x = 360 - x;
+        Sender(4, x, rawBool);
       }
       else if (status == 3)
       {
         rotationWithPID(a);
-        Sender(0);
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        x = 360 - x;
+        Sender(0, x, 0);
       }
       else if (status == 4)
       {
         maniKinematics(a, b);
-        Sender(0);
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        x = 360 - x;
+        Sender(0, x, 0);
       }
       else if (status == 5)
       {
@@ -294,7 +312,22 @@ void uart()
         {
           roboclaw1.ForwardM2(address1, 0);
         }
-        Sender(0);
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        x = 360 - x;
+        Sender(0, x, 0);
+      }
+      else if (status == 6)
+      {
+        kut.attach(50);
+        kut.write(a);
+        delay(1000);
+        kut.detach();
+        imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+        int x = euler.x();
+        x = 360 - x;
+        Sender(0, x, 0);
+
       }
     }
   }
@@ -396,9 +429,17 @@ int move(int angle, long int length)
     int speedA = roboclaw1.ReadSpeedM1(address1);
     int speedB = roboclaw1.ReadSpeedM2(address2);
     int speedC = roboclaw1.ReadSpeedM1(address3);
+    if ((abs(speedA) < 1) && (abs(speedB) < 1) && (abs(speedC) < 1) && (length - lengthOfRobot) < 10)
+    {
+      roboclaw1.SpeedM1(address1, 0);
+      roboclaw1.SpeedM2(address2, 0);
+      roboclaw1.SpeedM1(address3, 0);
+      logic = 1;
+    }
     if (Serial.available() > 0)
     {
       data = Serial.readStringUntil('\n');
+      String buf = String(data);
       char* json = data.c_str();
       DeserializationError error =  deserializeJson(doc, json);
       if (!error)
@@ -406,21 +447,24 @@ int move(int angle, long int length)
         String statusString = doc[String("s")].as<String>();
         String aString = doc[String("a")].as<String>();
         String bString = doc[String("b")].as<String>();
-        if(statusString.toInt() == 1)
+        if (statusString.toInt() == 1)
         {
+          externalData = String(buf);
           _extra = 1;
+          movingStatus = _extra;
         }
-          length = lengthOfRobot + 400;
-        }
-      }
-      if ((lengthOfRobot >= length))
-      {
-        externalData = "";
-        logic = 1;
+        length = lengthOfRobot + 400;
       }
     }
-    roboclaw1.SpeedM1(address1, 0);
-    roboclaw1.SpeedM2(address2, 0);
-    roboclaw1.SpeedM1(address3, 0);
-    return _extra;
+    if ((lengthOfRobot >= length))
+    {
+      if (_extra == 0)
+        externalData = "";
+      logic = 1;
+    }
   }
+  roboclaw1.SpeedM1(address1, 0);
+  roboclaw1.SpeedM2(address2, 0);
+  roboclaw1.SpeedM1(address3, 0);
+  return lengthOfRobot;
+}
